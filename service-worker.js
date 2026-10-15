@@ -1,4 +1,4 @@
-const CACHE_NAME = "alaa-academy-bimo-v2";
+const CACHE_NAME = "alaa-academy-bimo-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -7,7 +7,6 @@ const APP_SHELL = [
   "./install.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./icons/bimo.svg",
   "./icons/bimo-192.png",
   "./icons/bimo-512.png",
   "./icons/bimo-180.png",

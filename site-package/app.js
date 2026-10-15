@@ -18,6 +18,7 @@
   const FREE_MESSAGE_LIMIT = 5;
   const SUBSCRIPTION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
   const SUBSCRIPTION_STORAGE_KEY = "bimo_subscription_state";
+  const API_KEY_STORAGE_KEY = "bimo_openrouter_key";
 
   const subjectSelect = $("subject-select");
   SUBJECTS.forEach((subject) => {
@@ -67,10 +68,16 @@
     return required;
   }
   function recordFreeMessage() {
-    if (state.subscriptionExpiresAt > Date.now()) return;
+    if (state.subscriptionExpiresAt > Date.now()) return true;
     state.freeMessages = Math.min(FREE_MESSAGE_LIMIT, state.freeMessages + 1);
-    if (!persistSubscription()) return;
-    if (state.freeMessages >= FREE_MESSAGE_LIMIT) showSubscription();
+    return persistSubscription();
+  }
+  function clearSavedApiKey() {
+    state.apiKey = "";
+    $("api-key").value = "";
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+    setStatus(false, "المفتاح غير مضاف");
   }
   function showView(view) {
     document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
@@ -204,19 +211,29 @@
 
   $("settings-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    state.apiKey = $("api-key").value.trim();
-    state.model = $("model-select").value.trim() || "openai/gpt-4o-mini";
-    sessionStorage.setItem("bimo_openrouter_key", state.apiKey);
-    sessionStorage.setItem("bimo_model", state.model);
-    setStatus(Boolean(state.apiKey), state.apiKey ? "المفتاح محفوظ لهذه الجلسة" : "المفتاح غير مضاف");
-    $("settings-message").textContent = state.apiKey ? "تم حفظ الإعدادات في هذه الجلسة." : "أدخل المفتاح أولًا.";
+    const apiKey = $("api-key").value.trim();
+    const model = $("model-select").value.trim() || "openai/gpt-4o-mini";
+    try {
+      if (apiKey) localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+      else localStorage.removeItem(API_KEY_STORAGE_KEY);
+      sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+      sessionStorage.setItem("bimo_model", model);
+    } catch (error) {
+      $("settings-message").textContent = "تعذر حفظ الإعدادات على هذا الجهاز. تحقق من إعدادات التخزين في المتصفح.";
+      return;
+    }
+    state.apiKey = apiKey;
+    state.model = model;
+    setStatus(Boolean(state.apiKey), state.apiKey ? "المفتاح محفوظ على هذا الجهاز" : "المفتاح غير مضاف");
+    $("settings-message").textContent = state.apiKey ? "تم حفظ المفتاح على هذا الجهاز حتى مسحه أو رفضه من OpenRouter." : "أدخل المفتاح أولًا.";
   });
   $("clear-key").addEventListener("click", () => {
-    state.apiKey = "";
-    $("api-key").value = "";
-    sessionStorage.removeItem("bimo_openrouter_key");
-    setStatus(false, "المفتاح غير مضاف");
-    $("settings-message").textContent = "تم مسح المفتاح من هذه الجلسة.";
+    try {
+      clearSavedApiKey();
+      $("settings-message").textContent = "تم مسح المفتاح المحفوظ من هذا الجهاز.";
+    } catch (error) {
+      $("settings-message").textContent = "تعذر مسح المفتاح من التخزين المحلي.";
+    }
   });
   $("toggle-key").addEventListener("click", () => {
     const input = $("api-key");
@@ -253,11 +270,15 @@
     const lesson = $("lesson-input").value.trim();
     if (!message.trim() || state.busy) return;
     if (refreshSubscriptionGate()) return;
+    const isFreeMessage = state.subscriptionExpiresAt <= Date.now();
+    if (isFreeMessage && !recordFreeMessage()) return;
+    const subscriptionRequiredAfterReply = isFreeMessage && state.freeMessages >= FREE_MESSAGE_LIMIT;
     addMessage("user", message);
     $("message-input").value = "";
     state.messages.push({ role: "user", content: message });
     if (!state.apiKey) {
       addMessage("assistant", "أنا معك! قبل أن أجيب باستخدام الذكاء الاصطناعي، أضف مفتاح OpenRouter من الإعدادات. يمكنك استكشاف الواجهة الآن، وبعد إضافة الكتب سأتمكن من الاستناد إلى المقاطع المتاحة. لا أريد أن أخمّن إجابة وأنسبها إلى كتابك.", "error");
+      if (subscriptionRequiredAfterReply) showSubscription();
       return;
     }
     state.busy = true;
@@ -283,6 +304,15 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 401) {
+          try {
+            clearSavedApiKey();
+            $("settings-message").textContent = "رفض OpenRouter المفتاح؛ تمت إزالته من هذا الجهاز. أدخل مفتاحًا صالحًا.";
+          } catch (error) {
+            state.apiKey = "";
+            setStatus(false, "مفتاح OpenRouter غير صالح");
+          }
+        }
         const detail = data?.error?.message || `رمز الخطأ ${response.status}`;
         throw new Error(detail);
       }
@@ -290,7 +320,6 @@
       if (!answer) throw new Error("لم يصل رد نصي من النموذج.");
       pending.querySelector("div:last-child").textContent = answer;
       state.messages.push({ role: "assistant", content: answer });
-      recordFreeMessage();
     } catch (error) {
       pending.classList.add("error");
       pending.querySelector("div:last-child").textContent =
@@ -298,6 +327,7 @@
     } finally {
       state.busy = false;
       $("send-button").disabled = false;
+      if (subscriptionRequiredAfterReply) showSubscription();
     }
   }
   $("chat-form").addEventListener("submit", (event) => {
@@ -370,9 +400,16 @@
   }
 
   try {
-    state.apiKey = sessionStorage.getItem("bimo_openrouter_key") || "";
+    const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    const legacyApiKey = sessionStorage.getItem(API_KEY_STORAGE_KEY) || "";
+    state.apiKey = savedApiKey || legacyApiKey;
+    if (!savedApiKey && legacyApiKey) localStorage.setItem(API_KEY_STORAGE_KEY, legacyApiKey);
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
     state.model = sessionStorage.getItem("bimo_model") || "openai/gpt-4o-mini";
-  } catch (_) {}
+  } catch (error) {
+    state.apiKey = "";
+    $("settings-message").textContent = "تعذر قراءة المفتاح المحفوظ. تحقق من إعدادات التخزين في المتصفح.";
+  }
   try {
     const savedSubscription = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
     if (savedSubscription) {
@@ -392,7 +429,7 @@
   }
   $("api-key").value = state.apiKey;
   $("model-select").value = state.model;
-  setStatus(Boolean(state.apiKey), state.apiKey ? "المفتاح محفوظ لهذه الجلسة" : "المفتاح غير مضاف");
+  setStatus(Boolean(state.apiKey), state.apiKey ? "المفتاح محفوظ على هذا الجهاز" : "المفتاح غير مضاف");
   refreshSubscriptionGate();
   window.setInterval(refreshSubscriptionGate, 60_000);
   loadBooks();
