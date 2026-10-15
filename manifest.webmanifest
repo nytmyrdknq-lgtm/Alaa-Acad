@@ -1,0 +1,28 @@
+{
+  "id": "./",
+  "name": "العلاء أكاديمي | بيمو",
+  "short_name": "بيمو",
+  "description": "مساعدك التعليمي في رحلة التعلّم",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050907",
+  "theme_color": "#050907",
+  "icons": [
+    {
+      "src": "icons/bimo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/bimo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

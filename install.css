@@ -1,0 +1,6 @@
+.topbar{position:relative}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.install-button{border:1px solid #28613e;border-radius:10px;background:#0a120d;color:var(--green);padding:9px 12px;font-size:12px}
+.install-button:hover{border-color:var(--green);background:#0e2015}
+.install-status{position:absolute;top:calc(100% + 8px);left:0;z-index:5;max-width:min(100%,420px);border:1px solid var(--line);border-radius:10px;background:#0a100d;color:var(--text);padding:10px 13px;font-size:12px;line-height:1.7;box-shadow:0 8px 25px #0008}
+@media(max-width:640px){.topbar-actions{gap:6px}.install-button{padding:8px;font-size:11px}.top-tag{padding:8px 10px;font-size:10px}.install-status{left:0;right:0;max-width:100%}}

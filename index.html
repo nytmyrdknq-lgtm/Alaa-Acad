@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050907">
+  <meta name="description" content="العلاء أكاديمي: مساعد بيمو التعليمي، يجيب عن أسئلتك بالاستناد إلى كتب الرياضيات والفيزياء والكيمياء والأحياء واللغة الإنجليزية.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ar">
+  <meta property="og:title" content="العلاء أكاديمي | بيمو">
+  <meta property="og:description" content="مساعدك التعليمي في رحلة التعلّم، مع محتوى الكتب الدراسية المتاح.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/bimo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/bimo-180.png">
+  <title>العلاء أكاديمي | بيمو</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="subscription.css">
+  <link rel="stylesheet" href="install.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">A<span>+</span></div>
+        <div><strong>العلاء أكاديمي</strong><small>معًا نحو مستقبل أفضل</small></div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="chat">◫ <span>الدردشة</span></button>
+        <button class="nav-item" data-view="subjects">▤ <span>المواد الدراسية</span></button>
+        <button class="nav-item" data-view="quiz">✓ <span>الاختبارات</span></button>
+        <button class="nav-item" data-view="settings">⚙ <span>الإعدادات</span></button>
+      </nav>
+      <div class="sidebar-note">
+        <div class="pulse-dot"></div>
+        <strong>خطوة صغيرة كل يوم</strong>
+        <p>تعلّم اليوم، واصنع مستقبلك غدًا.</p>
+      </div>
+      <div class="sidebar-footer">
+        <div>ALAA ACADEMY</div>
+        <div class="programmer-name">المبرمج: خالد محسن بالحسن</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="mobile-brand">العلاء أكاديمي <span>• بيمو</span></div>
+        <div class="topbar-actions">
+          <button class="install-button" id="install-app" type="button">تثبيت التطبيق</button>
+          <div class="top-tag"><span class="status-dot"></span><span id="connection-label">المفتاح غير مضاف</span></div>
+          <button class="icon-button" id="open-settings" title="الإعدادات" aria-label="الإعدادات">⚙</button>
+        </div>
+        <span id="install-status" class="install-status hidden" role="status" aria-live="polite"></span>
+      </header>
+
+      <section class="view" id="chat-view">
+        <div class="chat-heading">
+          <div class="bimo-avatar" aria-hidden="true"><span class="avatar-eye"></span><span class="avatar-eye"></span></div>
+          <div><h1>مرحبًا، أنا بيمو</h1><p>مساعدك التعليمي في رحلة التعلّم</p></div>
+        </div>
+        <div class="welcome-panel" id="welcome-panel">
+          <div class="eyebrow">مساحتك للتعلّم</div>
+          <h2>ماذا تريد أن تتعلّم اليوم؟</h2>
+          <p>اختر المادة، ثم اسألني عن درس أو مفهوم. يستند بيمو إلى الكتب الدراسية المفهرسة في المشروع.</p>
+          <div class="quick-grid">
+            <button class="quick-card" data-prompt="اشرح لي الدرس خطوة بخطوة"><span>↗</span><strong>اشرح لي درسًا</strong><small>بأسلوب واضح ومبسط</small></button>
+            <button class="quick-card" data-prompt="اختبرني في المادة والدرس المحددين"><span>✓</span><strong>اختبر فهمي</strong><small>أسئلة مع تصحيح</small></button>
+            <button class="quick-card" data-prompt="ساعدني في حل هذه المسألة خطوة بخطوة"><span>∑</span><strong>حل مسألة</strong><small>مع شرح طريقة الحل</small></button>
+            <button class="quick-card" data-prompt="أعطني خطة مذاكرة قصيرة"><span>◷</span><strong>خطّة مذاكرة</strong><small>خطوات عملية للدراسة</small></button>
+          </div>
+        </div>
+
+        <div class="conversation" id="conversation" aria-live="polite"></div>
+
+        <div class="composer-area">
+          <div class="context-row">
+            <label class="select-wrap"><span>المادة</span>
+              <select id="subject-select"><option value="">اختر المادة</option></select>
+            </label>
+            <label class="select-wrap"><span>الدرس</span>
+              <input id="lesson-input" type="text" placeholder="اسم الدرس (اختياري)">
+            </label>
+          </div>
+          <form id="chat-form" class="composer">
+            <textarea id="message-input" rows="1" placeholder="اكتب سؤالك هنا..."></textarea>
+            <button type="submit" class="send-button" id="send-button" aria-label="إرسال">➤</button>
+          </form>
+          <div class="composer-foot"><span>تأكد من صحة فهمك وراجع كتابك دائمًا.</span><span id="book-status">لم تُضف الكتب بعد</span></div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="subjects-view">
+        <div class="page-title"><div><div class="eyebrow">مكتبتك</div><h1>المواد الدراسية</h1><p>تصفح المواد والكتب المفهرسة المتاحة في المكتبة.</p></div></div>
+        <div class="empty-library" id="subjects-list"><div class="empty-icon">▤</div><h2>مكتبة بيمو</h2><p>ستظهر هنا المواد والكتب المفهرسة المتاحة.</p></div>
+      </section>
+
+      <section class="view hidden" id="quiz-view">
+        <div class="page-title"><div><div class="eyebrow">تعلّم بالممارسة</div><h1>الاختبارات</h1><p>اطلب اختبارًا في المادة والدرس المحددين من شاشة الدردشة.</p></div></div>
+        <div class="feature-panel"><div class="feature-icon">✓</div><h2>اختبار يساعدك على الفهم</h2><p>اختر المادة في الدردشة واكتب: «اختبرني في هذا الدرس». سيستند الاختبار إلى محتوى الكتب المتاح.</p><button class="primary-button" data-go-chat>ابدأ اختبارًا في الدردشة</button></div>
+      </section>
+
+      <section class="view hidden" id="settings-view">
+        <div class="page-title"><div><div class="eyebrow">التخصيص والاتصال</div><h1>إعدادات بيمو</h1><p>أدخل مفتاح OpenRouter الذي تملكه للاتصال بالنموذج.</p></div></div>
+        <div class="settings-card">
+          <h2>الاتصال بالذكاء الاصطناعي</h2>
+          <p class="muted">بعد إدخال المفتاح، يتصل متصفحك على جهازك مباشرةً بـ OpenRouter ويرسل إليه الطلبات؛ لا يستخدم الموقع خادمًا وسيطًا. يُحفظ المفتاح في ذاكرة الجلسة فقط ويُمسح عند إغلاقها، ويمكن لمستخدم الجهاز رؤيته من أدوات المطوّر.</p>
+          <form id="settings-form">
+            <label for="api-key">مفتاح OpenRouter</label>
+            <div class="key-input-row"><input id="api-key" type="password" placeholder="sk-or-v1-..." autocomplete="off"><button class="secondary-button" type="button" id="toggle-key">إظهار</button></div>
+            <a class="video-link" href="https://youtube.com/shorts/Ktr8GN8BQeE?si=EcxgFm6ijIGB9_nC" target="_blank" rel="noopener noreferrer">شاهد الفيديو لمعرفة كيفية الحصول على مفتاح OpenRouter</a>
+            <label for="model-select">اسم النموذج</label>
+            <input id="model-select" type="text" value="openai/gpt-4o-mini" placeholder="provider/model">
+            <div class="settings-actions"><button class="primary-button" type="submit">حفظ المفتاح لهذه الجلسة</button><button class="secondary-button" type="button" id="clear-key">مسح المفتاح</button></div>
+          </form>
+          <div class="notice"><strong>تنبيه الخصوصية:</strong> عند إرسال رسالة، يُرسل نصها والمقاطع المسترجعة من الكتب إلى OpenRouter لتوليد الرد. لا تضع مفتاحًا لا تملك إذن استخدامه.</div>
+          <div id="settings-message" class="form-message" role="status"></div>
+        </div>
+        <div class="settings-card">
+          <h2>مكتبة الكتب</h2>
+          <p class="muted">يعتمد بيمو على فهرس الكتب المنظم الموجود في <code>data/books/index.json</code>.</p>
+          <div class="book-folder"><span>▣</span><div><strong>data/books/</strong><small>فهرس الكتب الدراسية</small></div><span class="folder-state">متاح</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="subscription-overlay hidden" id="subscription-overlay">
+    <section class="subscription-card" role="dialog" aria-modal="true" aria-labelledby="subscription-title">
+      <div class="eyebrow">العلاء أكاديمي</div>
+      <h2 id="subscription-title">انتهت الرسائل المجانية</h2>
+      <p>للمتابعة، تواصل مع المطور ليعطيك رمز الاشتراك. قيمة الاشتراك: <strong>3000</strong>.</p>
+      <div class="developer-contact">
+        <strong>المطور: خالد محسن بالحسن</strong>
+        <a href="tel:780348220" dir="ltr">780348220</a>
+      </div>
+      <p class="subscription-duration">يُفعّل الرمز الاشتراك لمدة 30 يومًا.</p>
+      <form id="subscription-form" novalidate>
+        <label for="subscription-code">ضع الرمز هنا فقط</label>
+        <input id="subscription-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="5" placeholder="ضع الرمز هنا فقط" aria-describedby="subscription-message">
+        <button class="primary-button" type="submit">تفعيل الاشتراك</button>
+      </form>
+      <p class="subscription-message" id="subscription-message" role="status" aria-live="polite"></p>
+      <p class="subscription-notice">تنبيه: التحقق وحفظ الاشتراك في هذا الإصدار يتمان على هذا الجهاز فقط، ولا يؤكدان إتمام الدفع.</p>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
