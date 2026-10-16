@@ -37,7 +37,7 @@ New-AppIcon 180 (Join-Path $iconsSource "bimo-180.png")
 New-AppIcon 192 (Join-Path $iconsSource "bimo-192.png")
 New-AppIcon 512 (Join-Path $iconsSource "bimo-512.png")
 
-foreach ($file in @("index.html", "styles.css", "subscription.css", "install.css", "app.js", "manifest.webmanifest", "service-worker.js", "_headers")) {
+foreach ($file in @("index.html", "styles.css", "study.css", "subscription.css", "install.css", "app.js", "manifest.webmanifest", "service-worker.js", "_headers")) {
   Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $publishRoot -Force
 }
 

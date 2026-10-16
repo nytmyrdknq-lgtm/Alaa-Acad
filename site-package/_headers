@@ -13,6 +13,9 @@
 /styles.css
   Cache-Control: no-cache
 
+/study.css
+  Cache-Control: no-cache
+
 /install.css
   Cache-Control: no-cache
 
