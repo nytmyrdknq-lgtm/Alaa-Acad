@@ -225,12 +225,25 @@
       const page = Number.isInteger(Number(source.page)) && Number(source.page) > 0
         ? `صفحة PDF ${source.page}`
         : "رقم الصفحة غير متوفر";
-      metadata.textContent = `${source.grade}، ${source.track}، ${page}${source.lesson ? `، ${source.lesson}` : ""}`;
+      metadata.textContent = `${source.grade}، ${source.track}، ${page}`;
       item.append(title, metadata);
       list.appendChild(item);
     });
     section.append(heading, list);
     messageElement.appendChild(section);
+  }
+  function addSourceCitation(container, sources) {
+    const references = [...new Set(sources.map((source) => {
+      const page = Number.isInteger(Number(source.page)) && Number(source.page) > 0
+        ? `صفحة PDF ${source.page}`
+        : "رقم الصفحة غير متوفر";
+      return `${source.subject} — ${source.book}، ${source.grade}، ${source.track}، ${page}`;
+    }))];
+    const citation = document.createElement("p");
+    citation.className = "message-citation";
+    citation.dir = "rtl";
+    citation.textContent = `المصدر الذي استند إليه هذا الرد: ${references.join("؛ ")}.`;
+    container.appendChild(citation);
   }
   function normalizeArabic(value) {
     return String(value || "")
@@ -296,13 +309,10 @@
         track: book.track,
         subject: book.subject,
         book: book.book,
-        lesson: typeof book.lesson === "string" && !/^https?:\/\//i.test(book.lesson)
-          ? book.lesson
-          : "",
         page: book.page
       })),
       excerpts: relevant.map(({ book }, index) =>
-        `[المصدر ${index + 1}]\nالصف: ${book.grade}\nالقسم: ${book.track}\nالمادة: ${book.subject}\nالكتاب: ${book.book}\nالعنوان المسجل: ${book.lesson || "غير محدد"}\nصفحة PDF: ${Number(book.page) > 0 ? book.page : "غير متوفرة"}\nالنص المستخرج:\n${book.text.slice(0, 1800)}`
+        `[المصدر ${index + 1}]\nالصف: ${book.grade}\nالقسم: ${book.track}\nالمادة: ${book.subject}\nالكتاب: ${book.book}\nصفحة PDF: ${Number(book.page) > 0 ? book.page : "غير متوفرة"}\nالنص المستخرج:\n${book.text.slice(0, 1800)}`
       )
     };
   }
@@ -581,7 +591,7 @@
 ${SCIENCE_EXPLANATION_INSTRUCTIONS}
 نفّذ المهمة التالية: ${MODE_INSTRUCTIONS[state.studyMode] || MODE_INSTRUCTIONS.answer}
 المادة: ${subject}. الكتاب المحدد: ${bookName}. القسم: ${track}. الدرس الذي أدخله الطالب: ${lesson || "لم يحدد"}.
-استخدم النصوص المصدرية أدناه وحدها لإثبات المعلومات المنسوبة إلى الكتاب. لا تختلق مصادر أو اقتباسات أو صفحات، ولا تخلط بين المواد أو الكتب. إذا كان النص المستخرج مشوهًا أو لا يكفي للإجابة، صرّح بذلك بوضوح ولا تخمّن. يمكنك توضيح المصطلحات بأمثلة حياتية لكن ميّزها عن معلومات الكتاب. ستظهر مراجع المقاطع الفعلية للطالب منفصلة عن إجابتك؛ لا تنشئ أرقام صفحات أو مراجع من عندك.
+استخدم النصوص المصدرية أدناه وحدها لإثبات المعلومات المنسوبة إلى الكتاب. لا تختلق مصادر أو اقتباسات أو صفحات، ولا تخلط بين المواد أو الكتب. إذا كان النص المستخرج مشوهًا أو لا يكفي للإجابة، صرّح بذلك بوضوح ولا تخمّن. يمكنك توضيح المصطلحات بأمثلة حياتية لكن ميّزها عن معلومات الكتاب. ابدأ إجابتك بسطر يذكر اسم المادة والكتاب والصفحة أو الصفحات كما وردت في المقاطع، ولا تذكر إلا المصادر التي استخدمتها فعليًا؛ إذا غابت بيانات الصفحة فقل إنها غير متوفرة ولا تخمن رقمًا. ستعرض الواجهة كذلك بيانات المصادر المسترجعة، ولا تنشئ أرقام صفحات أو مراجع من عندك.
 المقاطع المسترجعة فعليًا من الكتاب المحدد:
 ${bookContext.excerpts.join("\n\n---\n\n")}`;
     let requestTimeout = null;
@@ -631,6 +641,7 @@ ${bookContext.excerpts.join("\n\n---\n\n")}`;
       if (typeof answer !== "string" || !answer.trim()) throw new Error("لم يصل رد نصي من النموذج.");
       const answerBody = pending.querySelector(".message-content");
       answerBody.replaceChildren();
+      addSourceCitation(answerBody, bookContext.sources);
       appendMessageContent(answerBody, answer.trim());
       addSources(pending, bookContext.sources);
       state.messages.push({ role: "assistant", content: answer });

@@ -12,6 +12,17 @@
   font-size: 12px;
 }
 
+.message-citation {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border-right: 3px solid var(--green);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .message-source-title {
   color: var(--green);
   margin: 0;
