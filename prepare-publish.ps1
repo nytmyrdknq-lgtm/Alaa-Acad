@@ -42,6 +42,7 @@ foreach ($file in @("index.html", "styles.css", "study.css", "subscription.css",
 }
 
 Copy-Item -LiteralPath (Join-Path $projectRoot "data\books\index.json") -Destination $booksDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "data\books\verified-excerpts.json") -Destination $booksDestination -Force
 foreach ($icon in @("bimo-180.png", "bimo-192.png", "bimo-512.png")) {
   Copy-Item -LiteralPath (Join-Path $iconsSource $icon) -Destination (Join-Path $publishRoot "icons") -Force
 }

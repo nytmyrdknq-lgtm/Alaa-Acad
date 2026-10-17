@@ -12,17 +12,6 @@
   font-size: 12px;
 }
 
-.message-citation {
-  margin: 0 0 12px;
-  padding: 9px 11px;
-  border-right: 3px solid var(--green);
-  border-radius: 8px;
-  background: var(--panel2);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
 .message-source-title {
   color: var(--green);
   margin: 0;
@@ -108,41 +97,81 @@
   resize: none;
 }
 
-.mobile-nav {
+.mobile-menu-button,
+.mobile-menu,
+.mobile-menu-backdrop {
   display: none;
 }
 
 @media (max-width: 620px) {
-  .mobile-nav {
-    position: fixed;
-    z-index: 20;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 2px;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--line);
-    background: #060b08f5;
-    backdrop-filter: blur(12px);
+  .topbar {
+    position: relative;
   }
 
-  .mobile-nav .nav-item {
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 6px 3px;
-    text-align: center;
-    font-size: 10px;
+  .mobile-menu-button {
+    z-index: 32;
+    display: grid;
+    flex: 0 0 40px;
+    place-items: center;
+    order: 0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    font-size: 20px;
+  }
+
+  .mobile-brand {
+    order: 1;
+  }
+
+  .topbar-actions {
+    order: 2;
+    margin-right: 0;
+  }
+
+  .mobile-menu-backdrop:not(.hidden) {
+    position: fixed;
+    z-index: 29;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #0009;
+  }
+
+  .mobile-menu:not(.hidden) {
+    position: fixed;
+    z-index: 30;
+    top: 68px;
+    right: 12px;
+    display: grid;
+    width: min(280px, calc(100vw - 24px));
+    gap: 7px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 16px 45px #0008;
+    animation: sidebar-enter-from-right 220ms ease-out both;
+  }
+
+  .mobile-menu .nav-item {
+    width: 100%;
+    border-color: transparent;
+    border-radius: 10px;
+  }
+
+  .mobile-menu .nav-item.active {
+    border-color: #1a673b;
   }
 
   .main {
-    padding-bottom: 90px;
+    padding-bottom: 20px;
   }
 
   .composer-area {
-    bottom: 68px;
+    bottom: 0;
   }
 
   .context-row {
@@ -419,11 +448,6 @@ html[data-theme="light-blue"] .install-status {
   box-shadow: 0 8px 25px #183f7418;
 }
 
-html[data-theme="light-blue"] .mobile-nav {
-  border-top-color: var(--line);
-  background: #f8fbfff5;
-}
-
 html[data-theme="light-blue"] .subscription-overlay {
   background: #e9f0fbdc;
 }
@@ -449,4 +473,198 @@ html[data-theme="light-blue"] .theme-swatch-dark {
 
 html[data-theme="light-blue"] .theme-swatch-light {
   background: linear-gradient(135deg, #ffffff 55%, #087cff 56%);
+}
+
+.conversation {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  padding: 24px 0;
+}
+
+.conversation .message,
+.conversation .message.user,
+.conversation .message.assistant,
+.conversation .message.error {
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text);
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+
+.conversation .message-label {
+  margin-bottom: 8px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.conversation .message.error .message-label {
+  color: var(--danger);
+}
+
+.conversation .message.typing .message-content::after {
+  display: inline-block;
+  width: 1.5em;
+  color: var(--green);
+  content: "…";
+  animation: bimo-typing 1s steps(3, end) infinite;
+}
+
+@keyframes bimo-typing {
+  0%, 20% {
+    opacity: 0.25;
+  }
+
+  60%, 100% {
+    opacity: 1;
+  }
+}
+
+.message-content {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.equation-row {
+  min-width: 0;
+  width: 100%;
+}
+
+.message-line {
+  min-height: 1.5em;
+  line-height: 1.9;
+}
+
+.message-heading {
+  margin: 14px 0 7px;
+  color: var(--green);
+  font-size: 1.08em;
+  font-weight: 700;
+}
+
+.message-list-item {
+  position: relative;
+  padding-right: 1.35em;
+  line-height: 1.9;
+}
+
+.message-list-item::before {
+  position: absolute;
+  right: 0.45em;
+  color: var(--green);
+  content: "•";
+}
+
+.message-content code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--green);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.message-code-block {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 10px 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+  -webkit-overflow-scrolling: touch;
+}
+
+.message-code-block code {
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+@keyframes sidebar-enter-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sidebar > .brand,
+.sidebar > .nav .nav-item,
+.sidebar > .sidebar-note,
+.sidebar > .sidebar-footer > div {
+  animation: sidebar-enter-from-right 420ms ease-out both;
+}
+
+.sidebar > .nav .nav-item:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.sidebar > .nav .nav-item:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.sidebar > .nav .nav-item:nth-child(4) {
+  animation-delay: 210ms;
+}
+
+.sidebar > .sidebar-note {
+  animation-delay: 280ms;
+}
+
+.sidebar > .sidebar-footer > div:nth-child(1) {
+  animation-delay: 350ms;
+}
+
+.sidebar > .sidebar-footer > div:nth-child(2) {
+  animation-delay: 420ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar > .brand,
+  .sidebar > .nav .nav-item,
+  .sidebar > .sidebar-note,
+  .sidebar > .sidebar-footer > div {
+    animation: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .conversation {
+    gap: 24px;
+    padding: 20px 0;
+  }
+
+  .conversation .message {
+    font-size: 14px;
+  }
+
+  .equation-row {
+    min-width: 0;
+    box-sizing: border-box;
+    justify-content: flex-start;
+    max-width: 100%;
+    padding: 8px;
+    font-size: 0.95rem;
+  }
 }

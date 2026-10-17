@@ -13,6 +13,8 @@
     tracks: [],
     track: "",
     studyMode: "answer",
+    activeQuiz: null,
+    conversationContext: "",
     busy: false,
     freeMessages: 0,
     subscriptionExpiresAt: 0,
@@ -25,6 +27,19 @@
   const MODEL_STORAGE_KEY = "bimo_model";
   const THEME_STORAGE_KEY = "bimo_theme";
   const TARGET_GRADE = "الصف الثاني الثانوي";
+  const SEARCH_SYNONYMS = new Map([
+    ["مقبض", ["ذراع", "عزم"]],
+    ["المقبض", ["ذراع", "عزم"]],
+    ["مفصلة", ["محور", "دوران", "عزم"]],
+    ["المفصلة", ["محور", "دوران", "عزم"]],
+    ["باب", ["مقبض", "عزم", "ذراع"]],
+    ["الباب", ["مقبض", "عزم", "ذراع"]],
+    ["دوران", ["عزم", "محور"]],
+    ["التسارع", ["تعجيل"]],
+    ["تسارع", ["تعجيل"]],
+    ["التعجيل", ["تسارع"]],
+    ["تعجيل", ["تسارع"]]
+  ]);
   let modelCatalogPromise = null;
 
   const subjectSelect = $("subject-select");
@@ -129,6 +144,24 @@
       el.classList.toggle("active", el.dataset.view === view);
     });
     if (view === "settings") $("api-key").value = state.apiKey;
+    closeMobileMenu();
+  }
+  function closeMobileMenu() {
+    const menu = $("mobile-menu");
+    menu.classList.add("hidden");
+    $("mobile-menu-backdrop").classList.add("hidden");
+    menu.setAttribute("aria-hidden", "true");
+    $("mobile-menu-toggle").setAttribute("aria-expanded", "false");
+    $("mobile-menu-toggle").setAttribute("aria-label", "فتح القائمة");
+  }
+  function toggleMobileMenu() {
+    const menu = $("mobile-menu");
+    const isOpen = menu.classList.contains("hidden");
+    menu.classList.toggle("hidden", !isOpen);
+    $("mobile-menu-backdrop").classList.toggle("hidden", !isOpen);
+    menu.setAttribute("aria-hidden", String(!isOpen));
+    $("mobile-menu-toggle").setAttribute("aria-expanded", String(isOpen));
+    $("mobile-menu-toggle").setAttribute("aria-label", isOpen ? "إغلاق القائمة" : "فتح القائمة");
   }
   function setStudyMode(mode) {
     state.studyMode = mode;
@@ -139,6 +172,11 @@
     });
   }
   document.querySelectorAll(".nav-item").forEach((btn) => btn.addEventListener("click", () => showView(btn.dataset.view)));
+  $("mobile-menu-toggle").addEventListener("click", toggleMobileMenu);
+  $("mobile-menu-backdrop").addEventListener("click", closeMobileMenu);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMobileMenu();
+  });
   $("open-settings").addEventListener("click", () => showView("settings"));
   document.querySelectorAll("[data-go-chat]").forEach((btn) => btn.addEventListener("click", () => showView("chat")));
 
@@ -161,18 +199,45 @@
   }
   function appendMessageContent(container, content) {
     const lines = String(content).split(/\r?\n/);
-    lines.forEach((line, index) => {
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
       const trimmed = line.trim();
-      const wrappedEquation = trimmed.match(/^(?:\$\$([\s\S]*)\$\$|\\\[([\s\S]*)\\\])$/);
+      if (trimmed.startsWith("```")) {
+        const codeLines = [];
+        while (++index < lines.length && lines[index].trim() !== "```") {
+          codeLines.push(lines[index]);
+        }
+        const pre = document.createElement("pre");
+        pre.className = "message-code-block";
+        const code = document.createElement("code");
+        code.dir = "ltr";
+        code.textContent = codeLines.join("\n");
+        pre.appendChild(code);
+        container.appendChild(pre);
+        continue;
+      }
+      let wrappedEquation = trimmed.match(/^(?:\$\$([\s\S]*)\$\$|\\\[([\s\S]*)\\\])$/);
+      if (!wrappedEquation && (trimmed === "$$" || trimmed === "\\[")) {
+        const closingMarker = trimmed === "$$" ? "$$" : "\\]";
+        const equationLines = [];
+        while (++index < lines.length && lines[index].trim() !== closingMarker) {
+          equationLines.push(lines[index]);
+        }
+        wrappedEquation = [trimmed, equationLines.join("\n"), undefined];
+      }
       const labeledEquation = trimmed.match(/^(القانون|الصيغة|التعويض)\s*[:：]\s*(.+)$/u);
-      const hasOperator = /[=≈≠≤≥+\-−×÷*/^_√∑∫]/.test(trimmed);
-      const hasLatinOrNumber = /[A-Za-z\u0370-\u03FF0-9]/u.test(trimmed);
-      const hasArabic = /[\u0600-\u06FF]/u.test(trimmed);
-      const labeledFormula = labeledEquation &&
-        /[=≈≠≤≥+\-−×÷*/^_√∑∫]/.test(labeledEquation[2]) &&
-        /[A-Za-z\u0370-\u03FF0-9]/u.test(labeledEquation[2]);
+      const heading = line.match(/^\s{0,3}(#{1,3})\s+(.+)$/);
+      const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+      const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      const formulaCandidate = trimmed.replace(/\*\*|__/g, "");
+      const hasOperator = /[=≈≠≤≥+\-−×÷*/^_√∑∫]/.test(formulaCandidate);
+      const hasLatinOrNumber = /[A-Za-z\u0370-\u03FF0-9]/u.test(formulaCandidate);
+      const hasArabic = /[\u0600-\u06FF]/u.test(formulaCandidate);
+      const arabicWords = [...formulaCandidate.matchAll(/[\u0600-\u06FF]{2,}/gu)];
+      const labeledFormula = labeledEquation && /[=≈≠≤≥+\-−×÷*/^_√∑∫]/.test(labeledEquation[2]);
       const isEquation = Boolean(wrappedEquation || labeledFormula ||
-        (hasOperator && hasLatinOrNumber && !hasArabic));
+        (!heading && !bullet && !numbered && !/^\s*\*\*[^*]+\*\*\s*$/u.test(trimmed) &&
+          hasOperator && (hasLatinOrNumber || (hasArabic && arabicWords.length <= 3))));
 
       if (isEquation) {
         const row = document.createElement("div");
@@ -182,7 +247,7 @@
         formula.className = "equation";
         formula.dir = "ltr";
         const equationText = wrappedEquation
-          ? wrappedEquation[1] ?? wrappedEquation[2]
+          ? wrappedEquation[1] ?? wrappedEquation[2] ?? ""
           : labeledEquation
             ? labeledEquation[2]
             : trimmed;
@@ -197,14 +262,28 @@
         row.appendChild(formula);
         container.appendChild(row);
       } else {
-        const paragraph = document.createElement("div");
-        paragraph.className = "message-line";
+        const paragraph = document.createElement(heading ? `h${heading[1].length + 2}` : "div");
+        paragraph.className = heading ? "message-heading" : bullet || numbered ? "message-list-item" : "message-line";
         paragraph.dir = "rtl";
-        paragraph.textContent = line;
+        appendInlineFormatting(paragraph, heading?.[2] || bullet?.[1] || numbered?.[1] || line);
         container.appendChild(paragraph);
       }
-      if (index < lines.length - 1) {
-        container.appendChild(document.createElement("br"));
+    }
+  }
+  function appendInlineFormatting(container, text) {
+    const fragments = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    fragments.forEach((fragment) => {
+      if (fragment.startsWith("**") && fragment.endsWith("**")) {
+        const strong = document.createElement("strong");
+        strong.textContent = fragment.slice(2, -2);
+        container.appendChild(strong);
+      } else if (fragment.startsWith("`") && fragment.endsWith("`")) {
+        const code = document.createElement("code");
+        code.dir = "ltr";
+        code.textContent = fragment.slice(1, -1);
+        container.appendChild(code);
+      } else {
+        container.appendChild(document.createTextNode(fragment));
       }
     });
   }
@@ -225,25 +304,12 @@
       const page = Number.isInteger(Number(source.page)) && Number(source.page) > 0
         ? `صفحة PDF ${source.page}`
         : "رقم الصفحة غير متوفر";
-      metadata.textContent = `${source.grade}، ${source.track}، ${page}`;
+      metadata.textContent = `${source.grade}، ${source.track}${source.lesson ? `، ${source.lesson}` : ""}، ${page}`;
       item.append(title, metadata);
       list.appendChild(item);
     });
     section.append(heading, list);
     messageElement.appendChild(section);
-  }
-  function addSourceCitation(container, sources) {
-    const references = [...new Set(sources.map((source) => {
-      const page = Number.isInteger(Number(source.page)) && Number(source.page) > 0
-        ? `صفحة PDF ${source.page}`
-        : "رقم الصفحة غير متوفر";
-      return `${source.subject} — ${source.book}، ${source.grade}، ${source.track}، ${page}`;
-    }))];
-    const citation = document.createElement("p");
-    citation.className = "message-citation";
-    citation.dir = "rtl";
-    citation.textContent = `المصدر الذي استند إليه هذا الرد: ${references.join("؛ ")}.`;
-    container.appendChild(citation);
   }
   function normalizeArabic(value) {
     return String(value || "")
@@ -271,57 +337,80 @@
       "صف", "الثاني", "الثانوي", "علمي", "ادبي", "الصف", "الماده", "المحدد",
       "المحدده", "الدرس", "فهمي", "الكتاب", "المختار",
       "باستخدام", "العلاقه", "التي", "اكتبها", "هنا", "احسب", "قيمة",
-      "حساب", "بين", "معنى", "الرموز", "الوحدات", "التعويض", "ذراعها",
-      "العمودي", "والقوة", "القوة", "للقوة",
+      "حساب", "بين", "معنى", "الرموز", "الوحدات", "التعويض",
       "explain", "explanation", "summarize", "summary", "quiz", "test",
       "flashcards", "mindmap", "map", "points", "definition", "definitions",
       "please", "help", "me", "this", "the", "a", "an", "and", "or", "for",
       "from", "in", "on", "of", "what", "how", "about", "create", "make"
-    ]);
+    ].map(normalizeArabic));
     const terms = [...new Set(query.split(/\s+/).filter((word) =>
       (word.length > 1 || /^[A-Za-z\u0370-\u03FF]$/u.test(word)) &&
       !/^\d+$/u.test(word) && !stopWords.has(word)
     ))];
-    if (!terms.length || !track || !subject || !bookName) return { excerpts: [], sources: [] };
+    if (!track || !subject || !bookName) return { excerpts: [], sources: [], matched: false };
     const matches = [];
     for (const book of state.books) {
       if (book.grade !== TARGET_GRADE || book.track !== track ||
           book.subject !== subject || book.book !== bookName) continue;
       let matchedTerms = 0;
       let score = 0;
+      const lessonText = normalizeArabic(book.lesson || "");
+      const lessonTerms = new Set(lessonText.split(/\s+/));
       for (const term of terms) {
-        const frequency = book.termFrequency.get(term) || 0;
-        if (frequency) {
+        const relatedTerms = SEARCH_SYNONYMS.get(term) || [];
+        const candidates = [term, ...relatedTerms];
+        const frequency = candidates.reduce((sum, candidate) =>
+          sum + (book.termFrequency.get(candidate) || 0), 0);
+        const lessonMatch = candidates.some((candidate) => lessonTerms.has(candidate));
+        const semanticMatch = relatedTerms.some((candidate) =>
+          book.termFrequency.has(candidate) || lessonTerms.has(candidate));
+        if (frequency || lessonMatch) {
           matchedTerms++;
-          score += Math.min(5, frequency) * (term.length >= 5 ? 1.25 : 1);
+          score += Math.min(5, frequency) * (term.length >= 5 ? 1.25 : 1) +
+            (lessonMatch ? 3 : 0) + (semanticMatch ? 0.8 : 0);
         }
       }
-      const minimumMatches = 1;
-      if (matchedTerms >= minimumMatches) {
-        matches.push({ book, score: score + matchedTerms / terms.length });
-      }
+      matches.push({
+        book,
+        matchedTerms,
+        score: score + (terms.length ? matchedTerms / terms.length : 0) +
+          (book.verified ? 2.5 : 0) + (lessonText && query.includes(lessonText) ? 10 : 0)
+      });
     }
     matches.sort((a, b) => b.score - a.score || Number(a.book.page || 0) - Number(b.book.page || 0));
-    const relevant = matches.slice(0, 5);
+    const relevantMatches = matches.filter(({ matchedTerms }) => matchedTerms > 0);
+    const relevant = (relevantMatches.length ? relevantMatches : matches).slice(0, 3);
     return {
+      matched: relevantMatches.length > 0,
       sources: relevant.map(({ book }) => ({
         grade: book.grade,
         track: book.track,
         subject: book.subject,
         book: book.book,
+        lesson: typeof book.lesson === "string" && !/^https?:\/\//i.test(book.lesson)
+          ? book.lesson
+          : "",
         page: book.page
       })),
       excerpts: relevant.map(({ book }, index) =>
-        `[المصدر ${index + 1}]\nالصف: ${book.grade}\nالقسم: ${book.track}\nالمادة: ${book.subject}\nالكتاب: ${book.book}\nصفحة PDF: ${Number(book.page) > 0 ? book.page : "غير متوفرة"}\nالنص المستخرج:\n${book.text.slice(0, 1800)}`
+        `[مقطع ${index + 1}]\nالصف: ${book.grade}\nالقسم: ${book.track}\nالمادة: ${book.subject}\nالكتاب: ${book.book}\nالدرس المسجل: ${book.lesson || "غير محدد"}\nصفحة PDF: ${Number(book.page) > 0 ? book.page : "غير متوفرة"}\n${book.verified ? "النص المدقق بمقابلته مع PDF الأصلي" : "النص المستخرج"}:\n${book.text.slice(0, 1800)}`
       )
     };
   }
   async function loadBooks() {
     try {
-      const response = await fetch("data/books/index.json", { cache: "no-store" });
+      const [response, verifiedResponse] = await Promise.all([
+        fetch("data/books/index.json", { cache: "no-store" }),
+        fetch("data/books/verified-excerpts.json", { cache: "no-store" })
+      ]);
       if (!response.ok) throw new Error(`تعذر تحميل فهرس الكتب (HTTP ${response.status}).`);
+      if (!verifiedResponse.ok) throw new Error(`تعذر تحميل المقاطع المدققة (HTTP ${verifiedResponse.status}).`);
       const index = await response.json();
-      const entries = Array.isArray(index) ? index : (index.books || []);
+      const verifiedIndex = await verifiedResponse.json();
+      const entries = [
+        ...(Array.isArray(index) ? index : (index.books || [])),
+        ...(Array.isArray(verifiedIndex) ? verifiedIndex : (verifiedIndex.books || []))
+      ];
       state.books = entries
         .filter((item) => item && item.grade === TARGET_GRADE &&
           typeof item.track === "string" && typeof item.subject === "string" &&
@@ -485,22 +574,44 @@
   });
 
   const MODE_INSTRUCTIONS = {
-    explain: "اشرح الدرس خطوة بخطوة بعربية واضحة مناسبة للصف الثاني الثانوي، وعرّف المصطلحات واربط الشرح بأمثلة من المصدر. لا تضف حقائق منهجية غير موجودة في المقاطع.",
-    summarize: "لخّص محتوى المقاطع فقط، ثم استخرج أهم النقاط والقوانين والتعريفات الواردة فيها. ميّز بين القانون والتعريف، ولا تخترع أيًا منها.",
-    quiz: "أنشئ اختبارًا قصيرًا متنوعًا من محتوى المقاطع فقط. أدرج نموذج الإجابة ومفتاح التصحيح والدرجة المقترحة بوضوح، وميّز مفتاح الإجابات عن الأسئلة.",
-    flashcards: "أنشئ بطاقات تعليمية للحفظ من المقاطع فقط، بصيغة سؤال/وجه أمامي ثم جواب/وجه خلفي، مع تغطية المفاهيم والتعريفات والقوانين الموجودة.",
-    mindmap: "أنشئ خريطة ذهنية نصية متدرجة (عنوان رئيسي ثم فروع ونقاط فرعية) لمفاهيم المقاطع فقط، وأظهر الروابط بينها دون إضافة مفاهيم غير موثقة.",
-    answer: "أجب عن سؤال الطالب بالاستناد إلى المقاطع فقط. إن لم تجب المقاطع عنه بوضوح، فقل إن المصادر المتاحة لا تكفي ولا تخمّن."
+    explain: "اشرح ما طلبه الطالب خطوة بخطوة بلغة عربية واضحة مناسبة للصف الثاني الثانوي في اليمن، ثم أعط مثالًا محلولًا مناسبًا. عند شرح قانون عرّف رموزه واشرح متى يستخدم.",
+    summarize: "قدّم ملخصًا منظمًا للدرس بعناوين ونقاط، مع أهم الأفكار والتعريفات والقوانين ذات الصلة.",
+    quiz: "أجر اختبارًا تفاعليًا من سؤال واحد في كل رسالة، وانتظر إجابة الطالب قبل المتابعة. لا تعرض الإجابة الصحيحة قبل أن يجيب. بعد كل إجابة صححها واشرح السبب ثم اطرح السؤال التالي.",
+    quizAnswer: "قيّم إجابة الطالب عن آخر سؤال طرحته: اذكر بوضوح إن كانت صحيحة أو جزئية أو خاطئة، ثم اشرح الإجابة الصحيحة وسببها. بعد ذلك اطرح سؤالًا جديدًا واحدًا فقط من الدرس نفسه ولا تعرض إجابته، ثم انتظر رد الطالب.",
+    flashcards: "قدّم بطاقات مراجعة مناسبة للمستوى، كل بطاقة بسؤال واضح ثم إجابة موجزة.",
+    mindmap: "أنشئ خريطة ذهنية نصية منظمة بعنوان رئيسي وفروع ونقاط فرعية توضّح العلاقات بين الأفكار.",
+    answer: "أجب عن سؤال الطالب مباشرةً أولًا، ثم اشرح بإيجاز سبب الإجابة وطريقة الوصول إليها."
   };
+  function classifyRequest(message) {
+    const normalized = normalizeArabic(message);
+    const asksQuiz = /(اختبرني|اختبر|اختبار|امتحني|امتحان|اسالني سوال)/u.test(normalized);
+    const oneAtATime = /(سوال واحد|واحد في كل مره|كل مره سوال|سوالا واحدا)/u.test(normalized);
+    if (asksQuiz) return { mode: "quiz", oneAtATime, explicit: true };
+    if (/(لخص|تلخيص|ملخص)/u.test(normalized)) return { mode: "summarize", explicit: true };
+    if (/(اشرح|شرح|وضح|فسر|علمني)/u.test(normalized)) return { mode: "explain", explicit: true };
+    if (/(امثله|مثال|اعطني مثالا|اعطني امثله)/u.test(normalized)) return { mode: "explain", explicit: true };
+    if (/(بطاقات|فلاش|flashcards)/u.test(normalized)) return { mode: "flashcards", explicit: true };
+    if (/(خريطه ذهنيه|خريطه مفاهيم)/u.test(normalized)) return { mode: "mindmap", explicit: true };
+    if (/(^| )(ما|ماذا|كيف|لماذا|كم|هل|احسب|اوجد|عرف)( |$)/u.test(normalized)) {
+      return { mode: "answer", explicit: true };
+    }
+    return { mode: state.studyMode, oneAtATime: false, explicit: false };
+  }
+  function asksForSource(message) {
+    return /(مصدر|مصادر|مرجع|مراجع|من اي كتاب|من اي صفحه|رقم الصفحه)/u.test(normalizeArabic(message));
+  }
   const SCIENCE_EXPLANATION_INSTRUCTIONS = `تعليمات ثابتة لكل الردود:
 - اللغة الافتراضية هي العربية الواضحة المناسبة لطلاب ${TARGET_GRADE} في اليمن. اكتب العناوين والتعليقات وشرح الخطوات بالعربية؛ يُسمح بالرموز الرياضية والفيزيائية والكيميائية كما هي في المصدر.
+- استخدم الكتاب المحدد مصدرًا أساسيًا للتعريفات والقوانين والمنهج. طابق المعنى لا الألفاظ وحدها؛ عدم ظهور صياغة السؤال حرفيًا لا يعني غياب المعلومة.
+- أجب عن أسئلة الدرس ذات الصلة اعتمادًا على المقاطع المناسبة، ويمكنك شرحها أو استنتاج نتيجة منها بوضوح. إذا كانت المعلومة خارج المنهج فأجب عنها إذا كنت واثقًا وميّزها بوصفها معلومة إضافية. إذا لم تكفِ الأدلة أو لم تكن متأكدًا فاذكر ذلك ولا تختلق إجابة.
 - عند تناول قانون أو معادلة في الرياضيات أو الفيزياء أو الكيمياء، اعتمد أولًا على المقاطع المسترجعة من الكتاب المحدد. انقل الصيغة والرموز والوحدات وشروط الاستخدام كما تظهر في المقطع، ولا تستبدل رمزًا لاتينيًا مثل F أو r أو θ أو تغيّر اصطلاح الكتاب.
+- أعطِ أولوية للمقاطع الموسومة بأنها مدققة بمقابلتها مع PDF الأصلي عند صلتها بالسؤال، ثم استخدم نص OCR بوصفه قرينة لا بديلًا عن صيغة واضحة. إذا تعارض OCR مع مقطع مدقق، فاتبع المقطع المدقق واذكر حدود المصدر عند الحاجة.
 - عرّف كل رمز بالعربية، واذكر وحدة القياس وطريقة التعويض فقط إذا دعمها نص الكتاب أو بيانات المسألة. لا تخترع وحدة أو قيمة أو شرطًا. ميّز بوضوح بين ما يقوله المصدر وما يقدمه الطالب.
-- قد تكون OCR المقاطع المصورة مشوهة: إذا لم تستطع قراءة الصيغة أو الرمز أو الوحدة بثقة من النص المسترجع، فلا تستنتج القانون من معرفتك ولا تنسبه إلى الكتاب. قل إن صيغة القانون غير واضحة في النسخة المفهرسة واطلب صورة/نصًا أوضح، ولا تدّعِ أن صفحات المراجع تثبت صيغة غير ظاهرة فيها.
+- قد تكون OCR المقاطع المصورة مشوهة: لا تنسب صيغة غير مقروءة إلى الكتاب. إذا لم يتوفر نص مناسب، استخدم معرفتك الموثوقة للإجابة مع توضيح أنها شرح إضافي غير متحقق من نص الكتاب، أو اذكر عدم اليقين عند الحاجة؛ لا ترفض الإجابة تلقائيًا لمجرد نقص الفهرسة.
 - إذا زوّد الطالب القانون صراحةً في سؤاله وكانت المسألة محددة، فيجوز حل الحساب وفق الصيغة التي كتبها الطالب، مع توضيح أنها صيغة السؤال لا صيغة تحققت نسبتها إلى الكتاب؛ لا تصادق على نسبتها للكتاب دون نص واضح.
-- اعرض كل معادلة على سطر مستقل محاط بعلامتي $$، وبالصيغة النصية الواضحة ورموز المصدر نفسها؛ لا تضع شرحًا عربيًا داخل سطر المعادلة. ستعرضها الواجهة في كتلة معزولة من اليسار إلى اليمين، بينما يبقى النص عربيًا من اليمين إلى اليسار. لا تستخدم HTML أو كتل شيفرة.
+- اعرض كل معادلة على سطر مستقل محاط بعلامتي $$، وبالصيغة النصية الواضحة ورموز المصدر نفسها؛ لا تضع شرحًا عربيًا داخل سطر المعادلة. ستعرض الواجهة المعادلات من اليسار إلى اليمين والنص من اليمين إلى اليسار. لا تستخدم HTML.
 - في المسألة الحسابية رتّب الرد بالعربية تحت العناوين: المعطيات، المطلوب، القانون، التعويض، خطوات الحساب، النتيجة النهائية ووحدتها. لا تملأ أي قسم بافتراضات؛ إذا غاب القانون أو المعطى الضروري في المصادر أو السؤال، فصرّح بالنقص واطلبه.
-- لا تخترع قانونًا أو تعريفًا أو اقتباسًا أو رقم صفحة. لا تقل إن صيغة ما وردت في الكتاب إلا إذا كان نصها مقروءًا فعلًا في المقاطع المرسلة.`;
+- لا تخترع قانونًا أو تعريفًا أو اقتباسًا أو رقم صفحة. لا تذكر المصادر أو اسم الكتاب في خاتمة الإجابة إلا إذا طلب الطالب المرجع.`;
 
   async function validateTextModel(model) {
     if (!model || !/^[\w.-]+\/[\w.:-]+$/.test(model)) {
@@ -571,13 +682,39 @@
       addMessage("assistant", "لم يُحفظ مفتاح OpenRouter بعد. أضف مفتاحك الشخصي من الإعدادات؛ لا ترسله إلى المطور أو تضعه في ملفات المشروع.", "error");
       return;
     }
-    const bookContext = getBookContext(track, subject, bookName, `${lesson} ${message}`);
-    if (!bookContext.sources.length) {
-      addMessage("user", message);
-      addMessage("assistant", "لم أجد في الكتاب المحدد مقاطع تطابق موضوع السؤال بدرجة كافية، لذلك لم أرسل السؤال إلى النموذج ولم أنسب إجابة إلى الكتاب. اكتب اسم الدرس أو مصطلحًا من الصفحة، وتأكد من اختيار الكتاب الصحيح.", "error");
-      $("message-input").value = "";
-      return;
+    const contextKey = `${track}|${subject}|${bookName}|${lesson}`;
+    if (state.conversationContext && state.conversationContext !== contextKey) {
+      state.messages = [];
+      state.activeQuiz = null;
+      setStudyMode("answer");
+      $("conversation").replaceChildren();
+      $("welcome-panel").classList.remove("hidden");
     }
+    state.conversationContext = contextKey;
+    const request = classifyRequest(message);
+    let requestMode = request.mode;
+    if (request.explicit && requestMode !== "quiz") {
+      state.activeQuiz = null;
+    } else if (request.explicit && requestMode === "quiz") {
+      state.activeQuiz = {
+        lesson: lesson || message.replace(/اختبرني|اختبر|اختبار|امتحني|امتحان|اسألني|اسالني|في درس|في هذا الدرس/gu, " ").trim() || message,
+        questionNumber: 1,
+        awaitingAnswer: false
+      };
+    } else if (state.activeQuiz?.awaitingAnswer) {
+      requestMode = "quizAnswer";
+    } else if (requestMode === "quiz") {
+      state.activeQuiz = {
+        lesson: lesson || message.replace(/اختبرني|اختبر|اختبار|امتحني|امتحان|اسألني|اسالني|في درس|في هذا الدرس/gu, " ").trim() || message,
+        questionNumber: 1,
+        awaitingAnswer: false
+      };
+    } else {
+      state.activeQuiz = null;
+    }
+    setStudyMode(requestMode === "quizAnswer" ? "quiz" : requestMode);
+    const modeInstruction = MODE_INSTRUCTIONS[requestMode] || MODE_INSTRUCTIONS.answer;
+    const bookContext = getBookContext(track, subject, bookName, `${lesson} ${message}`);
     const isFreeMessage = state.subscriptionExpiresAt <= Date.now();
     if (isFreeMessage && !recordFreeMessage()) return;
     const subscriptionRequiredAfterReply = isFreeMessage && state.freeMessages >= FREE_MESSAGE_LIMIT;
@@ -586,14 +723,30 @@
     state.messages.push({ role: "user", content: message });
     state.busy = true;
     $("send-button").disabled = true;
-    const pending = addMessage("assistant", "أراجع سؤالك وأجهز الإجابة...");
+    const pending = addMessage("assistant", "أراجع سؤالك وأجهز الإجابة...", "typing");
+    const sourceRequestInstruction = asksForSource(message)
+      ? bookContext.matched
+        ? "طلب الطالب المرجع صراحةً؛ اذكر مرجع المقطع المستخدم وبيانات صفحته إذا كانت متاحة. إذا لم يتوفر المرجع فلا تخترع واحدًا."
+        : "طلب الطالب المرجع صراحةً، لكن لا يوجد مقطع مطابق للاستشهاد به؛ صرّح بذلك ولا تنسب إجابته إلى مقطع غير ذي صلة."
+      : "لا تذكر اسم الكتاب أو المصادر في بداية الإجابة أو نهايتها ولا تعرض قائمة مراجع تلقائيًا.";
+    const retrievalInstruction = bookContext.matched
+      ? `مقاطع استرجعها البحث من الكتاب المحدد لصلتها بالكلمات أو عنوان الدرس:\n${bookContext.excerpts.join("\n\n---\n\n")}`
+      : bookContext.excerpts.length
+        ? `لم يعثر البحث على تطابق دلالي أو لفظي كافٍ؛ هذه أفضل مقاطع متاحة من الكتاب المحدد كخلفية فقط وليست دليلًا على أن المعلومة واردة فيه. لا تعتبر ذلك سببًا لرفض السؤال؛ أجب من معرفتك الموثوقة إذا أمكن، وميّز الشرح الإضافي عن نص الكتاب، وإلا فاذكر عدم اليقين بوضوح.\n${bookContext.excerpts.join("\n\n---\n\n")}`
+        : "لم يتوفر نص مفهرس من الكتاب المحدد. لا تعتبر نقص الفهرسة دليلًا على غياب المعلومة؛ أجب من معرفتك الموثوقة إذا أمكن، وميّز الشرح الإضافي عن نص الكتاب، وإلا فاذكر عدم اليقين بوضوح.";
+    const quizInstruction = requestMode === "quiz"
+      ? `الاختبار تفاعلي، وهذه الجولة رقم ${state.activeQuiz.questionNumber}. اطرح سؤالًا واحدًا فقط عن درس «${state.activeQuiz.lesson}» ثم انتظر الإجابة. لا تكتب تلميح الإجابة أو الحل أو أسئلة أخرى. ${request.oneAtATime ? "طلب الطالب صراحةً سؤالًا واحدًا في كل مرة، فالتزم بذلك حرفيًا." : ""}`
+      : requestMode === "quizAnswer"
+        ? `صحّح الآن إجابة الطالب عن السؤال السابق في الاختبار التفاعلي. بعد التصحيح والشرح، اطرح سؤالًا واحدًا فقط (السؤال ${state.activeQuiz.questionNumber + 1}) عن درس «${state.activeQuiz.lesson}» ثم انتظر إجابته. لا تكشف الإجابة عن السؤال الجديد.`
+        : "";
     const systemPrompt = `أنت بيمو، مساعد دراسي لطلاب ${TARGET_GRADE} في العلاء أكاديمي.
 ${SCIENCE_EXPLANATION_INSTRUCTIONS}
-نفّذ المهمة التالية: ${MODE_INSTRUCTIONS[state.studyMode] || MODE_INSTRUCTIONS.answer}
+نفّذ المهمة التالية: ${modeInstruction}
 المادة: ${subject}. الكتاب المحدد: ${bookName}. القسم: ${track}. الدرس الذي أدخله الطالب: ${lesson || "لم يحدد"}.
-استخدم النصوص المصدرية أدناه وحدها لإثبات المعلومات المنسوبة إلى الكتاب. لا تختلق مصادر أو اقتباسات أو صفحات، ولا تخلط بين المواد أو الكتب. إذا كان النص المستخرج مشوهًا أو لا يكفي للإجابة، صرّح بذلك بوضوح ولا تخمّن. يمكنك توضيح المصطلحات بأمثلة حياتية لكن ميّزها عن معلومات الكتاب. ابدأ إجابتك بسطر يذكر اسم المادة والكتاب والصفحة أو الصفحات كما وردت في المقاطع، ولا تذكر إلا المصادر التي استخدمتها فعليًا؛ إذا غابت بيانات الصفحة فقل إنها غير متوفرة ولا تخمن رقمًا. ستعرض الواجهة كذلك بيانات المصادر المسترجعة، ولا تنشئ أرقام صفحات أو مراجع من عندك.
-المقاطع المسترجعة فعليًا من الكتاب المحدد:
-${bookContext.excerpts.join("\n\n---\n\n")}`;
+أجب عن السؤال المباشر أولًا ثم اشرح السبب، أو نفّذ نية الطالب المحددة أعلاه دون استبدالها بمهمة أخرى. لا تخلط بين طلب الشرح والاختبار. ${sourceRequestInstruction}
+لا تختلق مصادر أو اقتباسات أو صفحات، ولا تخلط بين المواد أو الكتب.
+${quizInstruction}
+${retrievalInstruction}`;
     let requestTimeout = null;
     try {
       await validateTextModel(state.model);
@@ -611,7 +764,7 @@ ${bookContext.excerpts.join("\n\n---\n\n")}`;
           model: state.model,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `المهمة: ${MODE_INSTRUCTIONS[state.studyMode] || MODE_INSTRUCTIONS.answer}\nسؤال الطالب: ${message}` }
+            ...state.messages.slice(-12)
           ]
         }),
         signal: controller.signal
@@ -639,13 +792,20 @@ ${bookContext.excerpts.join("\n\n---\n\n")}`;
       }
       const answer = data?.choices?.[0]?.message?.content;
       if (typeof answer !== "string" || !answer.trim()) throw new Error("لم يصل رد نصي من النموذج.");
+      pending.classList.remove("typing");
       const answerBody = pending.querySelector(".message-content");
       answerBody.replaceChildren();
-      addSourceCitation(answerBody, bookContext.sources);
       appendMessageContent(answerBody, answer.trim());
-      addSources(pending, bookContext.sources);
+      if (asksForSource(message) && bookContext.matched) addSources(pending, bookContext.sources);
       state.messages.push({ role: "assistant", content: answer });
+      if (requestMode === "quiz" || requestMode === "quizAnswer") {
+        if (requestMode === "quizAnswer") state.activeQuiz.questionNumber++;
+        state.activeQuiz.awaitingAnswer = true;
+      }
     } catch (error) {
+      pending.classList.remove("typing");
+      const lastMessage = state.messages[state.messages.length - 1];
+      if (lastMessage?.role === "user" && lastMessage.content === message) state.messages.pop();
       pending.classList.add("error");
       const detail = error.name === "AbortError"
         ? "انتهت مهلة الاتصال. تحقق من الإنترنت وحاول مجددًا."

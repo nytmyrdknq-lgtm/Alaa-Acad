@@ -44,6 +44,9 @@
 
     <main class="main">
       <header class="topbar">
+        <button class="icon-button mobile-menu-button" id="mobile-menu-toggle" type="button" aria-label="فتح القائمة" aria-controls="mobile-menu" aria-expanded="false">
+          <span aria-hidden="true">☰</span>
+        </button>
         <div class="mobile-brand">العلاء أكاديمي <span>• بيمو</span></div>
         <div class="topbar-actions">
           <button class="install-button" id="install-app" type="button">تثبيت التطبيق</button>
@@ -52,13 +55,13 @@
         </div>
         <span id="install-status" class="install-status hidden" role="status" aria-live="polite"></span>
       </header>
-      <nav class="mobile-nav" aria-label="التنقل الرئيسي">
+      <button class="mobile-menu-backdrop hidden" id="mobile-menu-backdrop" type="button" aria-label="إغلاق القائمة"></button>
+      <nav class="mobile-menu hidden" id="mobile-menu" aria-label="قائمة التنقل" aria-hidden="true">
         <button class="nav-item active" data-view="chat">◫ <span>الدردشة</span></button>
-        <button class="nav-item" data-view="subjects">▤ <span>الكتب</span></button>
+        <button class="nav-item" data-view="subjects">▤ <span>المواد الدراسية</span></button>
         <button class="nav-item" data-view="quiz">✓ <span>الاختبارات</span></button>
         <button class="nav-item" data-view="settings">⚙ <span>الإعدادات</span></button>
       </nav>
-
       <section class="view" id="chat-view">
         <div class="chat-heading">
           <div class="bimo-avatar" aria-hidden="true"><span class="avatar-eye"></span><span class="avatar-eye"></span></div>
@@ -71,10 +74,10 @@
           <div class="quick-grid">
             <button class="quick-card" data-mode="explain" data-prompt="اشرح لي الدرس خطوة بخطوة"><span>↗</span><strong>اشرح درسًا</strong><small>بأسلوب مبسط</small></button>
             <button class="quick-card" data-mode="summarize" data-prompt="لخّص الدرس واستخرج أهم النقاط والقوانين والتعريفات"><span>▤</span><strong>ملخص ومراجعة</strong><small>قوانين وتعريفات</small></button>
-            <button class="quick-card" data-mode="quiz" data-prompt="أنشئ اختبارًا قصيرًا من هذا الدرس مع الإجابات والتصحيح"><span>✓</span><strong>اختبر فهمي</strong><small>أسئلة وإجابات</small></button>
+            <button class="quick-card" data-mode="quiz" data-prompt="اختبرني في هذا الدرس، سؤالًا واحدًا في كل مرة"><span>✓</span><strong>اختبر فهمي</strong><small>أسئلة تفاعلية</small></button>
             <button class="quick-card" data-mode="flashcards" data-prompt="أنشئ بطاقات تعليمية للمراجعة من هذا الدرس"><span>▣</span><strong>بطاقات تعليمية</strong><small>سؤال وجواب</small></button>
             <button class="quick-card" data-mode="mindmap" data-prompt="أنشئ خريطة ذهنية نصية لمفاهيم هذا الدرس"><span>⌘</span><strong>خريطة ذهنية</strong><small>روابط المفاهيم</small></button>
-            <button class="quick-card" data-mode="answer" data-prompt="أجب عن سؤالي التالي اعتمادًا على الكتاب"><span>؟</span><strong>اسأل بيمو</strong><small>إجابة مع مراجع</small></button>
+            <button class="quick-card" data-mode="answer" data-prompt="أجب عن سؤالي التالي اعتمادًا على الكتاب"><span>؟</span><strong>اسأل بيمو</strong><small>إجابة مع شرح</small></button>
           </div>
         </div>
 
@@ -155,7 +158,7 @@
             <small id="model-help" class="muted">يتحقق بيمو قبل الطلب من وجود النموذج ودعمه للإدخال والإخراج النصي عبر واجهة المحادثة.</small>
             <div class="settings-actions"><button class="primary-button" type="submit">حفظ الإعدادات</button><button class="secondary-button" type="button" id="clear-key">حذف المفتاح</button></div>
           </form>
-          <div class="notice"><strong>تنبيه الخصوصية:</strong> عند الإرسال، يذهب سؤالك والمقاطع ذات الصلة من الكتاب إلى OpenRouter. لا تُرسل المحادثات السابقة أو مفتاحك إلى مستودع المشروع. المفتاح المحلي ليس آمنًا على جهاز مشترك أو مخترق.</div>
+          <div class="notice"><strong>تنبيه الخصوصية:</strong> عند الإرسال، يذهب سؤالك ومقاطع الكتاب وآخر رسائل الحوار في المادة والدرس المحددين إلى OpenRouter. يُرسل مفتاحك إلى OpenRouter للمصادقة ولا يُحفظ في ملفات المشروع. المفتاح المخزن محليًا ليس آمنًا على جهاز مشترك أو مخترق.</div>
           <div id="settings-message" class="form-message" role="status"></div>
         </div>
         <div class="settings-card">

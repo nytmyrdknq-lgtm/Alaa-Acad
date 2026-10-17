@@ -1,4 +1,4 @@
-const CACHE_NAME = "alaa-academy-bimo-v6";
+const CACHE_NAME = "alaa-academy-bimo-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,7 +11,8 @@ const APP_SHELL = [
   "./icons/bimo-192.png",
   "./icons/bimo-512.png",
   "./icons/bimo-180.png",
-  "./data/books/index.json"
+  "./data/books/index.json",
+  "./data/books/verified-excerpts.json"
 ];
 
 self.addEventListener("install", (event) => {
@@ -50,7 +51,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.endsWith("/data/books/index.json")) {
+  if (url.pathname.endsWith("/data/books/index.json") ||
+      url.pathname.endsWith("/data/books/verified-excerpts.json")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
