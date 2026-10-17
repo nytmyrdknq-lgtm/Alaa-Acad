@@ -848,7 +848,7 @@ ${retrievalInstruction}`;
   let installPrompt = null;
   const installButton = $("install-app");
   const installStatus = $("install-status");
-  const isInstalled = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  let isInstalled = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
     (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
 
@@ -863,6 +863,7 @@ ${retrievalInstruction}`;
     installPrompt = event;
     installButton.textContent = "تثبيت التطبيق";
     installButton.classList.remove("hidden");
+    installStatus.classList.add("hidden");
   });
 
   installButton.addEventListener("click", async () => {
@@ -874,25 +875,38 @@ ${retrievalInstruction}`;
       return;
     }
 
-    installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
+    const prompt = installPrompt;
     installPrompt = null;
-    if (choice.outcome === "accepted") {
-      installButton.classList.add("hidden");
-      installStatus.textContent = "تم بدء تثبيت بيمو على جهازك.";
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice.outcome === "accepted") {
+        installButton.classList.add("hidden");
+        installStatus.textContent = "تم بدء تثبيت بيمو على جهازك.";
+      } else {
+        installStatus.textContent = "لم يتم التثبيت. يمكنك المحاولة مرة أخرى من هذا الزر.";
+      }
+      installStatus.classList.remove("hidden");
+    } catch (error) {
+      console.error("تعذر بدء تثبيت بيمو:", error);
+      installStatus.textContent = "تعذر بدء التثبيت. أعد تحميل الصفحة وتأكد من دعم المتصفح للتثبيت.";
       installStatus.classList.remove("hidden");
     }
   });
 
   window.addEventListener("appinstalled", () => {
+    isInstalled = true;
+    installPrompt = null;
     installButton.classList.add("hidden");
     installStatus.textContent = "تم تثبيت بيمو بنجاح.";
     installStatus.classList.remove("hidden");
   });
 
-  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  if ("serviceWorker" in navigator && window.isSecureContext) {
     navigator.serviceWorker.register("./service-worker.js").catch((error) => {
       console.error("تعذر تفعيل دعم العمل دون اتصال:", error);
+      installStatus.textContent = "تعذر تجهيز التطبيق للعمل دون اتصال. أعد تحميل الصفحة وحاول مجددًا.";
+      installStatus.classList.remove("hidden");
     });
   }
 

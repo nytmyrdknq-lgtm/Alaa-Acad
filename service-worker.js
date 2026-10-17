@@ -1,4 +1,4 @@
-const CACHE_NAME = "alaa-academy-bimo-v9";
+const CACHE_NAME = "alaa-academy-bimo-v10";
 const APP_SHELL = [
   "./",
   "./index.html",

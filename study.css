@@ -500,6 +500,18 @@ html[data-theme="light-blue"] .theme-swatch-light {
   overflow-wrap: anywhere;
 }
 
+.conversation .message.user {
+  justify-self: left;
+  width: fit-content;
+  max-width: min(85%, 42rem);
+}
+
+.conversation .message.assistant {
+  justify-self: right;
+  width: 100%;
+  max-width: 100%;
+}
+
 .conversation .message-label {
   margin-bottom: 8px;
   color: var(--green);
