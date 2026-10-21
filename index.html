@@ -15,11 +15,47 @@
   <title>العلاء أكاديمي | بيمو</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="study.css">
-  <link rel="stylesheet" href="subscription.css">
+  <link rel="stylesheet" href="platform.css">
   <link rel="stylesheet" href="install.css">
 </head>
 <body>
-  <div class="app-shell">
+  <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <a class="auth-brand" href="./" aria-label="العلاء أكاديمي">
+        <img src="icons/bimo-192.png" alt="">
+        <span><strong>العلاء أكاديمي</strong><small>تعلّمك يبدأ من هنا</small></span>
+      </a>
+      <div class="eyebrow">مساحة تعليمية آمنة</div>
+      <h1 id="auth-title">مرحبًا بعودتك</h1>
+      <p class="auth-intro">سجّل الدخول لمتابعة تعلّمك وحفظ تقدمك الدراسي.</p>
+      <div id="auth-method-panel">
+      <button class="google-button" id="google-sign-in" type="button"><span class="google-mark" aria-hidden="true">G</span>المتابعة باستخدام Google</button>
+      <div class="auth-divider"><span>أو باستخدام البريد الإلكتروني</span></div>
+      <form id="auth-form" class="auth-form">
+        <label for="auth-name" id="auth-name-label" class="hidden">الاسم</label>
+        <input id="auth-name" class="hidden" type="text" autocomplete="name" placeholder="الاسم المعروض">
+        <label for="auth-email">البريد الإلكتروني</label>
+        <input id="auth-email" type="email" autocomplete="email" required placeholder="name@example.com" dir="ltr">
+        <label for="auth-password">كلمة المرور</label>
+        <div class="password-field"><input id="auth-password" type="password" autocomplete="current-password" minlength="8" required placeholder="٨ أحرف على الأقل" dir="ltr"><button type="button" class="secondary-button" id="toggle-auth-password" aria-pressed="false">إظهار</button></div>
+        <label for="auth-confirm-password" id="auth-confirm-label" class="hidden">تأكيد كلمة المرور</label>
+        <input id="auth-confirm-password" class="hidden" type="password" autocomplete="new-password" minlength="8" placeholder="أعد كتابة كلمة المرور" dir="ltr">
+        <button class="primary-button auth-submit" id="auth-submit" type="submit">تسجيل الدخول</button>
+      </form>
+      <button class="text-button" id="reset-password" type="button">نسيت كلمة المرور؟</button>
+      <p class="auth-switch"><span id="auth-switch-prompt">ليس لديك حساب؟</span> <button class="text-button" id="toggle-auth-mode" type="button">إنشاء حساب</button></p>
+      </div>
+      <form id="password-reset-form" class="auth-form hidden">
+        <label for="new-password">كلمة المرور الجديدة</label>
+        <input id="new-password" type="password" autocomplete="new-password" minlength="8" required placeholder="٨ أحرف على الأقل" dir="ltr">
+        <label for="confirm-new-password">تأكيد كلمة المرور الجديدة</label>
+        <input id="confirm-new-password" type="password" autocomplete="new-password" minlength="8" required placeholder="أعد كتابة كلمة المرور" dir="ltr">
+        <button class="primary-button auth-submit" type="submit">حفظ كلمة المرور</button>
+      </form>
+      <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+  <div class="app-shell hidden" id="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">A<span>+</span></div>
@@ -27,8 +63,10 @@
       </div>
       <nav class="nav">
         <button class="nav-item active" data-view="chat">◫ <span>الدردشة</span></button>
+        <button class="nav-item" data-view="robot">✦ <span>روبوت بيمو المتحدث</span></button>
         <button class="nav-item" data-view="subjects">▤ <span>المواد الدراسية</span></button>
         <button class="nav-item" data-view="quiz">✓ <span>الاختبارات</span></button>
+        <button class="nav-item" data-view="progress">↗ <span>تقدمي الدراسي</span></button>
         <button class="nav-item" data-view="settings">⚙ <span>الإعدادات</span></button>
       </nav>
       <div class="sidebar-note">
@@ -58,8 +96,10 @@
       <button class="mobile-menu-backdrop hidden" id="mobile-menu-backdrop" type="button" aria-label="إغلاق القائمة"></button>
       <nav class="mobile-menu hidden" id="mobile-menu" aria-label="قائمة التنقل" aria-hidden="true">
         <button class="nav-item active" data-view="chat">◫ <span>الدردشة</span></button>
+        <button class="nav-item" data-view="robot">✦ <span>روبوت بيمو المتحدث</span></button>
         <button class="nav-item" data-view="subjects">▤ <span>المواد الدراسية</span></button>
         <button class="nav-item" data-view="quiz">✓ <span>الاختبارات</span></button>
+        <button class="nav-item" data-view="progress">↗ <span>تقدمي الدراسي</span></button>
         <button class="nav-item" data-view="settings">⚙ <span>الإعدادات</span></button>
       </nav>
       <section class="view" id="chat-view">
@@ -116,6 +156,46 @@
         </div>
       </section>
 
+      <section class="view hidden" id="robot-view">
+        <div class="page-title robot-page-title">
+          <div><div class="eyebrow">معلّمك الرقمي</div><h1>روبوت بيمو المتحدث</h1><p>اسأل بلغتك، وشاهد الشرح خطوة بخطوة على السبورة.</p></div>
+        </div>
+        <div class="robot-layout">
+          <section class="whiteboard-panel" aria-label="السبورة التعليمية">
+            <div class="whiteboard-topline"><span class="whiteboard-live"><span class="pulse-dot"></span> السبورة الذكية</span><span id="board-progress" aria-live="polite">بانتظار سؤالك</span></div>
+            <div class="whiteboard-canvas" id="whiteboard-canvas" aria-live="polite">
+              <div class="board-placeholder"><span aria-hidden="true">✎</span><h2>لنحلّها معًا</h2><p>اختر المادة والكتاب، ثم اكتب سؤالك ليبدأ بيمو الشرح.</p></div>
+            </div>
+            <div class="board-controls" role="toolbar" aria-label="أدوات السبورة">
+              <button class="secondary-button" id="board-previous" type="button" disabled>السابق</button>
+              <button class="secondary-button" id="board-next" type="button" disabled>التالي</button>
+              <button class="primary-button" id="board-play" type="button" disabled>استمع للشرح</button>
+              <button class="secondary-button" id="board-replay" type="button" disabled>إعادة الشرح</button>
+              <button class="secondary-button" id="board-erase" type="button">مسح السبورة</button>
+              <button class="secondary-button" id="board-redraw" type="button" disabled>إعادة الكتابة</button>
+            </div>
+            <p class="board-status" id="board-status" role="status" aria-live="polite">الصوت يعتمد على جهازك؛ وتنسيق المعادلات بـ MathJax يتطلب اتصالًا بالإنترنت.</p>
+          </section>
+          <aside class="robot-mascot" id="robot-mascot">
+            <div class="robot-image-wrap"><img class="robot-bimo-image" src="icons/bimo-512.png" alt="شخصية بيمو"></div>
+            <div class="robot-name">بيمو <span>معلّمك الذكي</span></div>
+            <p id="robot-speaking-status">أنا جاهز لأشرح لك</p>
+          </aside>
+        </div>
+        <div class="robot-input-panel">
+          <div class="robot-context-row">
+            <label class="select-wrap robot-track-wrap" id="robot-track-wrap"><span>القسم</span><select id="robot-track-select" aria-label="القسم الدراسي"></select></label>
+            <label class="select-wrap"><span>المادة</span><select id="robot-subject-select" aria-label="المادة الدراسية"></select></label>
+            <label class="select-wrap"><span>الكتاب</span><select id="robot-book-select" aria-label="الكتاب الدراسي"></select></label>
+            <label class="select-wrap"><span>الدرس</span><input id="robot-lesson-input" type="text" placeholder="اسم الدرس (اختياري)"></label>
+          </div>
+          <form class="composer robot-composer" id="robot-form">
+            <textarea id="robot-question" rows="2" placeholder="اكتب سؤالك أو اطلب إعادة شرح خطوة..." aria-label="سؤالك لبيمو"></textarea>
+            <button type="submit" class="send-button" id="robot-send-button" aria-label="إرسال السؤال">➤</button>
+          </form>
+        </div>
+      </section>
+
       <section class="view hidden" id="subjects-view">
         <div class="page-title"><div><div class="eyebrow">الصف الثاني الثانوي</div><h1>المواد والكتب</h1><p>تصفح الكتب التي تتوفر لها نصوص مفهرسة في المشروع.</p></div></div>
         <div class="empty-library" id="subjects-list"><div class="empty-icon">▤</div><h2>مكتبة بيمو</h2><p>ستظهر هنا المواد والكتب المفهرسة المتاحة.</p></div>
@@ -147,6 +227,21 @@
           <p id="theme-status" class="form-message" role="status" aria-live="polite"></p>
         </div>
         <div class="settings-card">
+          <h2>حسابك الدراسي</h2>
+          <p class="muted" id="profile-email">تُحفظ بيانات التقدم في حسابك الشخصي.</p>
+          <label for="profile-grade">الصف الدراسي</label>
+          <select id="profile-grade" class="profile-grade-select">
+            <option value="">اختر الصف الدراسي</option>
+            <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
+          </select>
+          <div class="settings-actions">
+            <button class="secondary-button" id="save-profile" type="button">حفظ الصف</button>
+            <button class="secondary-button" id="reopen-onboarding" type="button">عرض المقدمة التعليمية</button>
+            <button class="secondary-button" id="sign-out" type="button">تسجيل الخروج</button>
+          </div>
+          <p id="profile-status" class="form-message" role="status" aria-live="polite"></p>
+        </div>
+        <div class="settings-card">
           <h2>الاتصال بالذكاء الاصطناعي</h2>
           <p class="muted">يتصل هذا المتصفح مباشرةً بـ OpenRouter دون خادم وسيط، ولا يحتاج بيمو إلى رفع ملف PDF لأن البحث يجري في فهرس النصوص المستخرج من كتب المشروع. المفتاح يُحفظ في التخزين المحلي لهذا المتصفح؛ قد يكون مكشوفًا على جهاز مشترك أو مخترق، أو عبر أدوات المطور والإضافات. استخدم مفتاحك أنت فقط وامسحه قبل مشاركة الجهاز.</p>
           <form id="settings-form">
@@ -167,27 +262,46 @@
           <div class="book-folder"><span>▣</span><div><strong>الصف الثاني الثانوي</strong><small id="library-status">جارٍ تحميل الفهرس النصي للكتب...</small></div><span class="folder-state">محلي</span></div>
         </div>
       </section>
+      <section class="view hidden" id="progress-view">
+        <div class="page-title"><div><div class="eyebrow">رحلتك التعليمية</div><h1>تقدمي وأخطائي</h1><p>نتائجك والدروس التي تحتاج إلى مراجعتها محفوظة في حسابك.</p></div></div>
+        <div class="progress-summary" id="progress-summary" aria-live="polite"><p>جارٍ تحميل تقدمك...</p></div>
+        <div class="settings-actions"><button class="primary-button" id="progress-start-quiz" type="button">ابدأ اختبارًا للمراجعة</button></div>
+      </section>
+      <section class="view hidden" id="onboarding-view">
+        <div class="onboarding-hero">
+          <div class="onboarding-mascot"><img src="icons/bimo-192.png" alt="بيمو"></div>
+          <div class="eyebrow">رحلتك نحو التفوق تبدأ الآن</div>
+          <h1>مرحباً بك في العلا أكاديمي! اكتشف كيف يساعدك بيمو على التفوق</h1>
+          <p>بيمو مدرسك الرقمي الذي يساعدك على فهم دروسك، وحل أسئلتك، واختبار معلوماتك، ومتابعة تقدمك الدراسي. اختر طريقة التعلم التي تناسبك وابدأ رحلتك نحو التفوق.</p>
+          <label class="onboarding-grade-label" for="onboarding-grade">صفك الدراسي</label>
+          <select id="onboarding-grade">
+            <option value="">اختر الصف الدراسي</option>
+            <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
+          </select>
+          <button class="primary-button onboarding-start" id="onboarding-start" type="button">ابدأ استخدام بيمو الآن</button>
+          <p id="onboarding-status" class="form-message" role="status" aria-live="polite"></p>
+        </div>
+        <div class="onboarding-grid">
+          <article class="onboarding-card"><span class="onboarding-icon">✦</span><h2>اشرح لي الدرس</h2><p>اختر مادتك ودرسك، وسيشرح لك بيمو المفاهيم خطوة بخطوة بطريقة واضحة ومناسبة لمستواك.</p><button class="primary-button" data-onboarding-action="explain">ابدأ التعلم</button></article>
+          <article class="onboarding-card"><span class="onboarding-icon">✓</span><h2>اختبرني</h2><p>اختبر فهمك للدرس، واكتشف إجاباتك الصحيحة والأخطاء التي تحتاج إلى مراجعتها.</p><button class="primary-button" data-onboarding-action="quiz">ابدأ الاختبار</button></article>
+          <article class="onboarding-card"><span class="onboarding-icon">؟</span><h2>حلّ لي سؤالاً</h2><p>اكتب سؤالك من الكتاب، واحصل على إجابة واضحة مع شرح خطوات الحل.</p><button class="primary-button" data-onboarding-action="solve">حل سؤال</button></article>
+          <article class="onboarding-card"><span class="onboarding-icon">▤</span><h2>الروبوت المتحدث والسبورة</h2><p>شاهد بيمو وهو يشرح لك الدروس باستخدام الروبوت المتحدث والسبورة التفاعلية.</p><button class="primary-button" data-onboarding-action="robot">شاهد الشرح</button></article>
+          <article class="onboarding-card"><span class="onboarding-icon">↻</span><h2>راجع أخطاءك</h2><p>ارجع إلى الأسئلة التي أخطأت فيها سابقاً، وراجع الدروس التي تحتاج إلى تحسين مستواك فيها.</p><button class="primary-button" data-onboarding-action="review">راجع تقدمي</button></article>
+          <article class="onboarding-card"><span class="onboarding-icon">▣</span><h2>اختر مادتك</h2><p>ابدأ من المادة التي تريدها، واختر الدرس الذي تحتاج إلى فهمه أو مراجعته.</p><button class="primary-button" data-onboarding-action="subjects">اختر المادة</button></article>
+        </div>
+      </section>
     </main>
   </div>
-  <div class="subscription-overlay hidden" id="subscription-overlay">
-    <section class="subscription-card" role="dialog" aria-modal="true" aria-labelledby="subscription-title">
-      <div class="eyebrow">العلاء أكاديمي</div>
-      <h2 id="subscription-title">انتهت الرسائل المجانية</h2>
-      <p>للمتابعة، تواصل مع المطور ليعطيك رمز الاشتراك. قيمة الاشتراك: <strong>3000</strong>.</p>
-      <div class="developer-contact">
-        <strong>المطور: خالد محسن بالحسن</strong>
-        <a href="tel:780348220" dir="ltr">780348220</a>
-      </div>
-      <p class="subscription-duration">يُفعّل الرمز الاشتراك لمدة 30 يومًا.</p>
-      <form id="subscription-form" novalidate>
-        <label for="subscription-code">ضع الرمز هنا فقط</label>
-        <input id="subscription-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="5" placeholder="ضع الرمز هنا فقط" aria-describedby="subscription-message">
-        <button class="primary-button" type="submit">تفعيل الاشتراك</button>
-      </form>
-      <p class="subscription-message" id="subscription-message" role="status" aria-live="polite"></p>
-      <p class="subscription-notice">تنبيه: التحقق وحفظ الاشتراك في هذا الإصدار يتمان على هذا الجهاز فقط، ولا يؤكدان إتمام الدفع.</p>
-    </section>
-  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="platform.js"></script>
+  <script>
+    window.MathJax = {
+      tex: { displayMath: [["$$", "$$"], ["\\[", "\\]"]], inlineMath: [["\\(", "\\)"]] },
+      options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

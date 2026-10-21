@@ -10,16 +10,22 @@
 /app.js
   Cache-Control: no-cache
 
+/platform.js
+  Cache-Control: no-cache
+
+/supabase-config.js
+  Cache-Control: no-cache
+
 /styles.css
   Cache-Control: no-cache
 
 /study.css
   Cache-Control: no-cache
 
-/install.css
+/platform.css
   Cache-Control: no-cache
 
-/subscription.css
+/install.css
   Cache-Control: no-cache
 
 /service-worker.js

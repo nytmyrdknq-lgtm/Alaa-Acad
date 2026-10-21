@@ -15,14 +15,8 @@
     studyMode: "answer",
     activeQuiz: null,
     conversationContext: "",
-    busy: false,
-    freeMessages: 0,
-    subscriptionExpiresAt: 0,
-    subscriptionStorageAvailable: true
+    busy: false
   };
-  const FREE_MESSAGE_LIMIT = 5;
-  const SUBSCRIPTION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
-  const SUBSCRIPTION_STORAGE_KEY = "bimo_subscription_state";
   const API_KEY_STORAGE_KEY = "bimo_openrouter_key";
   const MODEL_STORAGE_KEY = "bimo_model";
   const THEME_STORAGE_KEY = "bimo_theme";
@@ -46,6 +40,9 @@
   const trackSelect = $("track-select");
   const bookSelect = $("book-select");
   const studyModeSelect = $("study-mode-select");
+  let boardSteps = [];
+  let boardStepIndex = 0;
+  let boardSpeechPaused = false;
 
   function addOption(select, value, label) {
     const option = document.createElement("option");
@@ -91,45 +88,6 @@
       if (option.checked) applyTheme(option.value);
     });
   });
-  function showSubscription(message = "") {
-    $("subscription-overlay").classList.remove("hidden");
-    $("subscription-message").textContent = message;
-    $("subscription-code").focus();
-  }
-  function persistSubscription() {
-    try {
-      localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify({
-        freeMessages: state.freeMessages,
-        expiresAt: state.subscriptionExpiresAt
-      }));
-      return true;
-    } catch (error) {
-      state.subscriptionStorageAvailable = false;
-      showSubscription("تعذر حفظ حالة الاشتراك على هذا الجهاز. فعّل التخزين المحلي في المتصفح ثم أعد تحميل الصفحة.");
-      $("subscription-form").querySelector("button").disabled = true;
-      $("subscription-code").disabled = true;
-      return false;
-    }
-  }
-  function refreshSubscriptionGate() {
-    if (!state.subscriptionStorageAvailable) {
-      showSubscription("تعذر استخدام التخزين المحلي في المتصفح، لذلك لا يمكن التحقق من الاشتراك.");
-      return true;
-    }
-    if (state.subscriptionExpiresAt && state.subscriptionExpiresAt <= Date.now()) {
-      state.subscriptionExpiresAt = 0;
-      state.freeMessages = FREE_MESSAGE_LIMIT;
-      if (!persistSubscription()) return true;
-    }
-    const required = !state.subscriptionExpiresAt && state.freeMessages >= FREE_MESSAGE_LIMIT;
-    if (required) showSubscription();
-    return required;
-  }
-  function recordFreeMessage() {
-    if (state.subscriptionExpiresAt > Date.now()) return true;
-    state.freeMessages = Math.min(FREE_MESSAGE_LIMIT, state.freeMessages + 1);
-    return persistSubscription();
-  }
   function clearSavedApiKey() {
     localStorage.removeItem(API_KEY_STORAGE_KEY);
     sessionStorage.removeItem(API_KEY_STORAGE_KEY);
@@ -138,12 +96,16 @@
     setStatus(false, "المفتاح غير مضاف");
   }
   function showView(view) {
+    if (view !== "robot" && "speechSynthesis" in window && window.speechSynthesis.speaking) {
+      stopBoardSpeech();
+    }
     document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
     $(`${view}-view`).classList.remove("hidden");
     document.querySelectorAll(".nav-item").forEach((el) => {
       el.classList.toggle("active", el.dataset.view === view);
     });
     if (view === "settings") $("api-key").value = state.apiKey;
+    if (view === "progress") void renderStudentProgress();
     closeMobileMenu();
   }
   function closeMobileMenu() {
@@ -179,6 +141,7 @@
   });
   $("open-settings").addEventListener("click", () => showView("settings"));
   document.querySelectorAll("[data-go-chat]").forEach((btn) => btn.addEventListener("click", () => showView("chat")));
+  window.addEventListener("alaa:show-view", (event) => showView(event.detail.view));
 
   function addMessage(role, content, extraClass = "") {
     $("welcome-panel").classList.add("hidden");
@@ -475,6 +438,31 @@
     bookNames.forEach((name) => addOption(bookSelect, name, name));
     if (bookNames.includes(selectedBook)) bookSelect.value = selectedBook;
     else if (bookNames.length === 1) bookSelect.value = bookNames[0];
+    syncRobotSelectors();
+  }
+  function syncRobotSelectors() {
+    const robotTrack = $("robot-track-select");
+    robotTrack.replaceChildren();
+    if (state.tracks.length > 1) {
+      addOption(robotTrack, "", "اختر القسم");
+      state.tracks.forEach((track) => addOption(robotTrack, track, track));
+      robotTrack.value = state.track;
+      $("robot-track-wrap").classList.remove("hidden");
+    } else {
+      $("robot-track-wrap").classList.add("hidden");
+    }
+    for (const [source, target] of [
+      [subjectSelect, $("robot-subject-select")],
+      [bookSelect, $("robot-book-select")]
+    ]) {
+      target.replaceChildren(...[...source.options].map((option) => {
+        const copy = document.createElement("option");
+        copy.value = option.value;
+        copy.textContent = option.textContent;
+        return copy;
+      }));
+      target.value = source.value;
+    }
   }
   function renderSubjects() {
     const container = $("subjects-list");
@@ -514,6 +502,132 @@
       container.appendChild(card);
     });
   }
+  async function renderStudentProgress() {
+    const container = $("progress-summary");
+    container.replaceChildren();
+    const platform = window.AlaaPlatform;
+    if (!platform?.user) {
+      container.textContent = "سجّل الدخول لعرض تقدمك الشخصي.";
+      return;
+    }
+    const loading = document.createElement("p");
+    loading.className = "progress-empty";
+    loading.textContent = "جارٍ تحميل تقدمك...";
+    container.appendChild(loading);
+    try {
+      const progress = await platform.loadProgress();
+      container.replaceChildren();
+      const lessonSection = document.createElement("section");
+      lessonSection.className = "progress-section";
+      const lessonHeading = document.createElement("h2");
+      lessonHeading.textContent = "الدروس";
+      lessonSection.appendChild(lessonHeading);
+      if (!progress.lessons.length) {
+        const empty = document.createElement("p");
+        empty.className = "progress-empty";
+        empty.textContent = "لم يُسجل تقدم بعد. ابدأ بشرح درس أو إجراء اختبار.";
+        lessonSection.appendChild(empty);
+      } else {
+        const list = document.createElement("ul");
+        list.className = "progress-list";
+        progress.lessons.forEach((lesson) => {
+          const item = document.createElement("li");
+          item.append(document.createTextNode(`${lesson.subject} — ${lesson.lesson}`));
+          const detail = document.createElement("small");
+          detail.textContent = `${lesson.book} · ${lesson.status === "completed" ? "مكتمل" : "قيد الدراسة"}${lesson.needs_review ? " · يحتاج إلى مراجعة" : ""}`;
+          item.appendChild(detail);
+          if (lesson.status !== "completed") {
+            const completeButton = document.createElement("button");
+            completeButton.type = "button";
+            completeButton.className = "text-button";
+            completeButton.textContent = "تحديد كمكتمل";
+            completeButton.addEventListener("click", async () => {
+              completeButton.disabled = true;
+              try {
+                await platform.saveLessonProgress({
+                  ...lesson, track: platform.profile?.track || state.track,
+                  status: "completed", needsReview: lesson.needs_review
+                });
+                await renderStudentProgress();
+              } catch (error) {
+                completeButton.disabled = false;
+                $("profile-status").textContent = `تعذر تحديث الدرس: ${error.message}`;
+              }
+            });
+            item.appendChild(completeButton);
+          }
+          list.appendChild(item);
+        });
+        lessonSection.appendChild(list);
+      }
+      const quizSection = document.createElement("section");
+      quizSection.className = "progress-section";
+      const quizHeading = document.createElement("h2");
+      quizHeading.textContent = "نتائج الاختبارات والأخطاء";
+      quizSection.appendChild(quizHeading);
+      if (!progress.attempts.length) {
+        const empty = document.createElement("p");
+        empty.className = "progress-empty";
+        empty.textContent = "لم تُسجل نتائج بعد. أجرِ اختبارك الأول ليظهر تقدمك هنا.";
+        quizSection.appendChild(empty);
+      } else {
+        const list = document.createElement("ul");
+        list.className = "progress-list";
+        progress.attempts.forEach((attempt) => {
+          const item = document.createElement("li");
+          item.textContent = `${attempt.subject} — ${attempt.lesson}: ${attempt.correctness === "correct" ? "إجابة صحيحة" : attempt.correctness === "partial" ? "إجابة جزئية، تحتاج مراجعة" : attempt.correctness === "incorrect" ? "تحتاج مراجعة" : "لم يتمكن بيمو من تحديد النتيجة بدقة"}`;
+          const detail = document.createElement("small");
+          detail.textContent = `السؤال: ${attempt.question} · إجابتك: ${attempt.student_answer}${attempt.score === null ? "" : ` · الدرجة: ${attempt.score}/100`}${attempt.feedback ? ` · توضيح: ${attempt.feedback}` : ""}`;
+          item.appendChild(detail);
+          list.appendChild(item);
+        });
+        quizSection.appendChild(list);
+      }
+      container.append(lessonSection, quizSection);
+    } catch (error) {
+      console.error("تعذر تحميل تقدم الطالب:", error);
+      container.replaceChildren();
+      const message = document.createElement("p");
+      message.className = "progress-empty";
+      message.textContent = `تعذر تحميل تقدمك الآن: ${error.message}`;
+      container.appendChild(message);
+    }
+  }
+  $("progress-start-quiz").addEventListener("click", () => {
+    showView("chat");
+    setStudyMode("quiz");
+    $("message-input").value = "اختبرني في هذا الدرس، سؤالًا واحدًا في كل مرة";
+    $("message-input").focus();
+  });
+  document.querySelectorAll("[data-onboarding-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const platform = window.AlaaPlatform;
+      if (platform?.finishOnboardingForAction &&
+          !(await platform.finishOnboardingForAction())) return;
+      const action = button.dataset.onboardingAction;
+      if (action === "robot") {
+        showView("robot");
+      } else if (action === "review") {
+        showView("progress");
+      } else if (action === "subjects") {
+        showView("subjects");
+      } else {
+        showView("chat");
+        if (action === "explain") {
+          setStudyMode("explain");
+          $("message-input").value = "اشرح لي الدرس خطوة بخطوة";
+        }
+        if (action === "quiz") {
+          setStudyMode("quiz");
+          $("message-input").value = "اختبرني في هذا الدرس، سؤالًا واحدًا في كل مرة";
+        } else if (action === "solve") {
+          setStudyMode("answer");
+          $("message-input").value = "";
+        }
+        $("message-input").focus();
+      }
+    });
+  });
 
   $("settings-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -549,35 +663,11 @@
     $("toggle-key").setAttribute("aria-pressed", String(input.type === "text"));
   });
 
-  $("subscription-code").addEventListener("input", (event) => {
-    event.target.value = event.target.value
-      .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
-      .replace(/[\u06F0-\u06F9]/g, (digit) => String(digit.charCodeAt(0) - 0x06F0))
-      .replace(/\D/g, "")
-      .slice(0, 5);
-  });
-  $("subscription-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const code = $("subscription-code").value;
-    if (!/^\d{5}$/.test(code) || code[2] !== "8") {
-      $("subscription-message").textContent = "الرمز غير صحيح. أدخل خمسة أرقام، ويجب أن يكون الرقم الثالث 8.";
-      $("subscription-code").focus();
-      return;
-    }
-    state.freeMessages = 0;
-    state.subscriptionExpiresAt = Date.now() + SUBSCRIPTION_DURATION_MS;
-    if (!persistSubscription()) return;
-    $("subscription-overlay").classList.add("hidden");
-    $("subscription-code").value = "";
-    $("subscription-message").textContent = "";
-    addMessage("assistant", "تم تفعيل الاشتراك لمدة 30 يومًا. يمكنك متابعة التعلّم الآن.");
-  });
-
   const MODE_INSTRUCTIONS = {
     explain: "اشرح ما طلبه الطالب خطوة بخطوة بلغة عربية واضحة مناسبة للصف الثاني الثانوي في اليمن، ثم أعط مثالًا محلولًا مناسبًا. عند شرح قانون عرّف رموزه واشرح متى يستخدم.",
     summarize: "قدّم ملخصًا منظمًا للدرس بعناوين ونقاط، مع أهم الأفكار والتعريفات والقوانين ذات الصلة.",
     quiz: "أجر اختبارًا تفاعليًا من سؤال واحد في كل رسالة، وانتظر إجابة الطالب قبل المتابعة. لا تعرض الإجابة الصحيحة قبل أن يجيب. بعد كل إجابة صححها واشرح السبب ثم اطرح السؤال التالي.",
-    quizAnswer: "قيّم إجابة الطالب عن آخر سؤال طرحته: اذكر بوضوح إن كانت صحيحة أو جزئية أو خاطئة، ثم اشرح الإجابة الصحيحة وسببها. بعد ذلك اطرح سؤالًا جديدًا واحدًا فقط من الدرس نفسه ولا تعرض إجابته، ثم انتظر رد الطالب.",
+    quizAnswer: "قيّم إجابة الطالب عن آخر سؤال طرحته: ابدأ ردك بسطر مستقل بصيغة التقييم: صحيح أو التقييم: جزئي أو التقييم: غير صحيح، ثم اشرح الإجابة الصحيحة وسببها. بعد ذلك اطرح سؤالًا جديدًا واحدًا فقط من الدرس نفسه ولا تعرض إجابته، ثم انتظر رد الطالب.",
     flashcards: "قدّم بطاقات مراجعة مناسبة للمستوى، كل بطاقة بسؤال واضح ثم إجابة موجزة.",
     mindmap: "أنشئ خريطة ذهنية نصية منظمة بعنوان رئيسي وفروع ونقاط فرعية توضّح العلاقات بين الأفكار.",
     answer: "أجب عن سؤال الطالب مباشرةً أولًا، ثم اشرح بإيجاز سبب الإجابة وطريقة الوصول إليها."
@@ -663,25 +753,33 @@
     return `${messages[status] || (status >= 500 ? "خدمة OpenRouter تواجه مشكلة مؤقتة." : `فشل الطلب (HTTP ${status}).`)}${detail ? `\nالتفاصيل: ${detail}` : ""}`;
   }
 
-  async function sendMessage(message) {
+  async function sendMessage(message, destination = "chat") {
     const subject = subjectSelect.value;
     const track = state.track;
     const bookName = bookSelect.value;
     const lesson = $("lesson-input").value.trim();
     if (!message.trim() || state.busy) return;
-    if (refreshSubscriptionGate()) return;
+    const reportRobotIssue = (text) => {
+      if (destination !== "robot") return;
+      $("board-status").textContent = text;
+      $("robot-speaking-status").textContent = "أحتاج إلى بعض الإعدادات قبل أن أشرح";
+    };
     if (!track) {
       addMessage("assistant", "اختر القسم الدراسي أولًا لعرض الكتب المتاحة.");
+      reportRobotIssue("اختر القسم الدراسي أولًا.");
       return;
     }
     if (!subject || !bookName) {
       addMessage("assistant", "اختر المادة والكتاب أولًا حتى أبحث في مصدره الصحيح.");
+      reportRobotIssue("اختر المادة والكتاب أولًا حتى أستند إلى المصدر الصحيح.");
       return;
     }
     if (!state.apiKey) {
       addMessage("assistant", "لم يُحفظ مفتاح OpenRouter بعد. أضف مفتاحك الشخصي من الإعدادات؛ لا ترسله إلى المطور أو تضعه في ملفات المشروع.", "error");
+      reportRobotIssue("أضف مفتاح OpenRouter الشخصي من الإعدادات أولًا.");
       return;
     }
+    if (destination === "robot") stopBoardSpeech();
     const contextKey = `${track}|${subject}|${bookName}|${lesson}`;
     if (state.conversationContext && state.conversationContext !== contextKey) {
       state.messages = [];
@@ -715,15 +813,18 @@
     setStudyMode(requestMode === "quizAnswer" ? "quiz" : requestMode);
     const modeInstruction = MODE_INSTRUCTIONS[requestMode] || MODE_INSTRUCTIONS.answer;
     const bookContext = getBookContext(track, subject, bookName, `${lesson} ${message}`);
-    const isFreeMessage = state.subscriptionExpiresAt <= Date.now();
-    if (isFreeMessage && !recordFreeMessage()) return;
-    const subscriptionRequiredAfterReply = isFreeMessage && state.freeMessages >= FREE_MESSAGE_LIMIT;
+    const quizQuestion = state.activeQuiz?.lastQuestion || "";
     addMessage("user", message);
     $("message-input").value = "";
+    if (destination === "robot") $("robot-question").value = "";
     state.messages.push({ role: "user", content: message });
     state.busy = true;
     $("send-button").disabled = true;
+    $("robot-send-button").disabled = true;
     const pending = addMessage("assistant", "أراجع سؤالك وأجهز الإجابة...", "typing");
+    const mathLanguageInstruction = subject === "الرياضيات"
+      ? "تعليمات إلزامية خاصة بالرياضيات: اكتب الإجابة كلها بالعربية، ولا تستخدم كلمات أو جملًا إنجليزية. استخدم حروف المتغيرات العربية كما في الكتاب؛ اكتب س بدل x، وص بدل y، وع بدل z، ولا تعرض هذه الحروف اللاتينية في المعادلات أو الشرح. حافظ على الأرقام والعمليات الرياضية، واكتب المصطلحات الرياضية بالعربية. راجع إجابتك قبل إرسالها واحذف أي كلمة إنجليزية أو متغير لاتيني غير موجود صراحةً في صيغة الكتاب."
+      : "";
     const sourceRequestInstruction = asksForSource(message)
       ? bookContext.matched
         ? "طلب الطالب المرجع صراحةً؛ اذكر مرجع المقطع المستخدم وبيانات صفحته إذا كانت متاحة. إذا لم يتوفر المرجع فلا تخترع واحدًا."
@@ -743,6 +844,9 @@
 ${SCIENCE_EXPLANATION_INSTRUCTIONS}
 نفّذ المهمة التالية: ${modeInstruction}
 المادة: ${subject}. الكتاب المحدد: ${bookName}. القسم: ${track}. الدرس الذي أدخله الطالب: ${lesson || "لم يحدد"}.
+${mathLanguageInstruction}
+
+${destination === "robot" ? "هذه جلسة سبورة تفاعلية: نظّم الشرح إلى عنوان واضح ثم مراحل قصيرة متسلسلة، واجعل عنوان كل مرحلة في سطر مستقل يبدأ بـ ### (مثل ### تحديد المطلوب والمعطيات، ### القانون، ### التعويض، ### خطوات الحل، ### التحقق والنتيجة النهائية). استخدم $$ حول كل معادلة مستقلة بصيغة LaTeX صحيحة، واشرح الرموز والوحدات بالعربية. إذا سأل الطالب عن خطوة بعينها أو طلب تبسيطها، أجب عن تلك الخطوة فقط وابدأ بعنوان يوضح رقمها؛ لا تكرر الحل كاملًا. لا تدّعِ أن المعلومة في الكتاب إلا إذا دعمها مقطع مسترجع." : ""}
 أجب عن السؤال المباشر أولًا ثم اشرح السبب، أو نفّذ نية الطالب المحددة أعلاه دون استبدالها بمهمة أخرى. لا تخلط بين طلب الشرح والاختبار. ${sourceRequestInstruction}
 لا تختلق مصادر أو اقتباسات أو صفحات، ولا تخلط بين المواد أو الكتب.
 ${quizInstruction}
@@ -801,7 +905,32 @@ ${retrievalInstruction}`;
       if (requestMode === "quiz" || requestMode === "quizAnswer") {
         if (requestMode === "quizAnswer") state.activeQuiz.questionNumber++;
         state.activeQuiz.awaitingAnswer = true;
+        state.activeQuiz.lastQuestion = answer;
       }
+      const platform = window.AlaaPlatform;
+      if (platform?.user) {
+        try {
+          const lessonName = lesson || state.activeQuiz?.lesson || "غير محدد";
+          const correctness = requestMode === "quizAnswer" ? classifyQuizFeedback(answer) : "ungraded";
+          await platform.saveLessonProgress({
+            track, subject, book: bookName, lesson: lessonName,
+            status: "studying", needsReview: correctness === "incorrect" || correctness === "partial"
+          });
+          if (requestMode === "quizAnswer") {
+            const wrongAnswer = correctness === "incorrect" || correctness === "partial";
+            await platform.saveQuizAttempt({
+              track, subject, book: bookName, lesson: lessonName, question: quizQuestion,
+              studentAnswer: message, feedback: answer, correctness,
+              score: parseQuizScore(answer),
+              incorrectAnswers: wrongAnswer ? [{ question: quizQuestion, studentAnswer: message, feedback: answer }] : []
+            });
+          }
+        } catch (error) {
+          console.error("تعذر حفظ تقدم الطالب:", error);
+          $("profile-status").textContent = `وصل رد بيمو، لكن تعذر حفظ التقدم في حسابك: ${error.message}`;
+        }
+      }
+      if (destination === "robot") renderWhiteboard(answer.trim());
     } catch (error) {
       pending.classList.remove("typing");
       const lastMessage = state.messages[state.messages.length - 1];
@@ -812,17 +941,210 @@ ${retrievalInstruction}`;
         : error instanceof TypeError
           ? "تعذر الاتصال بخدمة OpenRouter. تحقق من الإنترنت أو إعدادات الاتصال وحاول مجددًا."
         : error.message;
-      pending.querySelector("div:last-child").textContent = `تعذر الحصول على إجابة.\n${detail}`;
+      const errorText = `تعذر الحصول على إجابة.\n${detail}`;
+      pending.querySelector("div:last-child").textContent = errorText;
+      reportRobotIssue(errorText);
     } finally {
       if (requestTimeout !== null) window.clearTimeout(requestTimeout);
       state.busy = false;
       $("send-button").disabled = false;
-      if (subscriptionRequiredAfterReply) showSubscription();
+      $("robot-send-button").disabled = false;
     }
+  }
+  function classifyQuizFeedback(answer) {
+    const firstLine = normalizeArabic(String(answer).split(/\r?\n/u)[0]);
+    const marker = firstLine.replace(/^التقييم\s*/u, "").trim();
+    if (/^(صحيح|اجابه صحيحه|اجابة صحيحة)/u.test(marker)) return "correct";
+    if (/^(جزئي|جزئيه|اجابه جزئيه|اجابة جزئية)/u.test(marker)) return "partial";
+    if (/^(غير صحيح|خاطئ|خاطئه|اجابه خاطئه|اجابة خاطئة)/u.test(marker)) return "incorrect";
+    return "ungraded";
+  }
+  function parseQuizScore(answer) {
+    const line = String(answer).split(/\r?\n/u).find((part) => /^الدرجة\s*:/u.test(normalizeArabic(part)));
+    if (!line) return null;
+    const westernDigits = normalizeArabic(line)
+      .replace(/[\u0660-\u0669]/gu, (digit) => String(digit.charCodeAt(0) - 0x0660))
+      .replace(/[\u06F0-\u06F9]/gu, (digit) => String(digit.charCodeAt(0) - 0x06F0));
+    const match = westernDigits.match(/الدرجه\s*:?\s*(\d{1,3})(?:\s*\/\s*100)?/u);
+    if (!match) return null;
+    const score = Number(match[1]);
+    return score <= 100 ? score : null;
   }
   $("chat-form").addEventListener("submit", (event) => {
     event.preventDefault();
     sendMessage($("message-input").value);
+  });
+  function parseBoardSteps(answer) {
+    const sections = answer.trim().split(/\n(?=#{1,3}\s+)/u);
+    const parsed = sections.map((section) => {
+      const lines = section.split(/\r?\n/);
+      const heading = lines[0].match(/^\s*#{1,3}\s+(.+)$/u);
+      return { title: heading?.[1]?.trim() || "", content: (heading ? lines.slice(1) : lines).join("\n").trim() };
+    }).filter((step) => step.title || step.content);
+    if (parsed.some((step) => step.title)) return parsed;
+    return answer.trim().split(/\n\s*\n/u).filter(Boolean).map((content, index) => ({
+      title: index === 0 ? "الشرح" : `الخطوة ${index + 1}`,
+      content: content.trim()
+    }));
+  }
+  function renderWhiteboard(answer) {
+    boardSteps = parseBoardSteps(answer);
+    boardStepIndex = 0;
+    $("board-erase").disabled = false;
+    $("board-redraw").disabled = false;
+    $("board-replay").disabled = false;
+    renderBoardStep();
+    $("board-status").textContent = "اكتمل الشرح. استخدم السابق والتالي أو استمع للخطوات.";
+    $("robot-speaking-status").textContent = "انتهيت من تجهيز الشرح";
+  }
+  function renderBoardStep() {
+    const canvas = $("whiteboard-canvas");
+    if (!boardSteps.length) return;
+    const step = boardSteps[boardStepIndex];
+    const article = document.createElement("article");
+    article.className = "board-step";
+    const heading = document.createElement("h2");
+    heading.textContent = step.title || `الخطوة ${boardStepIndex + 1}`;
+    const body = document.createElement("div");
+    body.className = "board-step-content";
+    appendMessageContent(body, step.content);
+    body.querySelectorAll(".equation").forEach((formula) => {
+      formula.textContent = `\\[${formula.textContent}\\]`;
+    });
+    article.append(heading, body);
+    canvas.replaceChildren(article);
+    $("board-progress").textContent = `الخطوة ${boardStepIndex + 1} من ${boardSteps.length}`;
+    $("board-previous").disabled = boardStepIndex === 0;
+    $("board-next").disabled = boardStepIndex >= boardSteps.length - 1;
+    $("board-play").disabled = false;
+    $("board-play").textContent = "استمع لهذه الخطوة";
+    const typeset = () => {
+      if (!window.MathJax?.typesetPromise) return false;
+      window.MathJax.typesetPromise([article]).catch((error) => {
+        $("board-status").textContent = "تعذر تنسيق المعادلات؛ تحقق من اتصال الإنترنت لإتاحة MathJax.";
+        console.error("تعذر تنسيق معادلات السبورة:", error);
+      });
+      return true;
+    };
+    if (!typeset()) {
+      const onMathJaxReady = () => {
+        if (!typeset()) $("board-status").textContent = "تعذر تحميل MathJax؛ تحقق من اتصال الإنترنت لعرض المعادلات.";
+      };
+      if (document.readyState === "complete") window.setTimeout(onMathJaxReady, 1500);
+      else window.addEventListener("load", onMathJaxReady, { once: true });
+    }
+  }
+  function stopBoardSpeech() {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    boardSpeechPaused = false;
+    $("robot-mascot").classList.remove("speaking");
+    $("robot-speaking-status").textContent = boardSteps.length ? "الشرح جاهز للاستماع" : "أنا جاهز لأشرح لك";
+  }
+  function speakBoardStep() {
+    if (!boardSteps.length || !("speechSynthesis" in window)) {
+      $("board-status").textContent = "ميزة تحويل النص إلى كلام غير متاحة في هذا المتصفح.";
+      return;
+    }
+    if (boardSpeechPaused) {
+      window.speechSynthesis.resume();
+      boardSpeechPaused = false;
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const body = $("whiteboard-canvas").querySelector(".board-step-content");
+    const text = `${boardSteps[boardStepIndex].title}. ${body?.textContent || ""}`
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/gu, "$1 على $2")
+      .replace(/\\sqrt\{([^{}]+)\}/gu, "جذر $1")
+      .replace(/\\times|\\cdot/gu, " ضرب ")
+      .replace(/\\div/gu, " قسمة ")
+      .replace(/\\pi/gu, " باي ")
+      .replace(/\\[a-zA-Z]+|[$\\{}^_]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ar";
+    const voices = window.speechSynthesis.getVoices();
+    utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("ar")) || null;
+    utterance.onstart = () => {
+      $("robot-mascot").classList.add("speaking");
+      $("robot-speaking-status").textContent = "بيمو يشرح الآن";
+      $("board-play").textContent = "إيقاف مؤقت";
+    };
+    utterance.onend = () => {
+      $("robot-mascot").classList.remove("speaking");
+      boardSpeechPaused = false;
+      if (boardStepIndex < boardSteps.length - 1) {
+        boardStepIndex++;
+        renderBoardStep();
+        window.setTimeout(speakBoardStep, 150);
+      } else {
+        $("robot-speaking-status").textContent = "انتهى شرح الخطوات";
+        $("board-play").textContent = "استمع للشرح";
+      }
+    };
+    utterance.onerror = (event) => {
+      $("robot-mascot").classList.remove("speaking");
+      $("board-status").textContent = `تعذر تشغيل الصوت (${event.error}). تحقق من إعدادات الصوت في جهازك.`;
+    };
+    window.speechSynthesis.speak(utterance);
+    $("board-status").textContent = utterance.voice
+      ? `الصوت العربي: ${utterance.voice.name}`
+      : "لم يعثر المتصفح على صوت عربي مثبت؛ قد تختلف جودة النطق.";
+  }
+  $("board-previous").addEventListener("click", () => {
+    stopBoardSpeech();
+    boardStepIndex = Math.max(0, boardStepIndex - 1);
+    renderBoardStep();
+  });
+  $("board-next").addEventListener("click", () => {
+    stopBoardSpeech();
+    boardStepIndex = Math.min(boardSteps.length - 1, boardStepIndex + 1);
+    renderBoardStep();
+  });
+  $("board-play").addEventListener("click", () => {
+    if (window.speechSynthesis?.paused) {
+      window.speechSynthesis.resume();
+      boardSpeechPaused = false;
+      $("board-play").textContent = "إيقاف مؤقت";
+      $("robot-speaking-status").textContent = "بيمو يشرح الآن";
+    } else if (window.speechSynthesis?.speaking) {
+      window.speechSynthesis.pause();
+      boardSpeechPaused = true;
+      $("board-play").textContent = "استكمال الصوت";
+      $("robot-speaking-status").textContent = "الصوت متوقف مؤقتًا";
+    } else {
+      speakBoardStep();
+    }
+  });
+  $("board-replay").addEventListener("click", () => {
+    stopBoardSpeech();
+    boardStepIndex = 0;
+    renderBoardStep();
+    speakBoardStep();
+  });
+  $("board-erase").addEventListener("click", () => {
+    stopBoardSpeech();
+    $("whiteboard-canvas").replaceChildren();
+    $("board-progress").textContent = "تم مسح السبورة";
+    $("board-status").textContent = "الشرح محفوظ؛ اضغط «إعادة الكتابة» لاستعادته.";
+  });
+  $("board-redraw").addEventListener("click", renderBoardStep);
+  $("robot-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    $("lesson-input").value = $("robot-lesson-input").value;
+    sendMessage($("robot-question").value, "robot");
+  });
+  $("robot-track-select").addEventListener("change", () => {
+    state.track = $("robot-track-select").value;
+    trackSelect.value = state.track;
+    updateSelectors();
+  });
+  $("robot-subject-select").addEventListener("change", () => {
+    subjectSelect.value = $("robot-subject-select").value;
+    updateSelectors();
+  });
+  $("robot-book-select").addEventListener("change", () => {
+    bookSelect.value = $("robot-book-select").value;
   });
   trackSelect.addEventListener("change", () => {
     state.track = trackSelect.value;
@@ -911,6 +1233,7 @@ ${retrievalInstruction}`;
   }
 
   try {
+    localStorage.removeItem("bimo_subscription_state");
     const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
     const legacyApiKey = sessionStorage.getItem(API_KEY_STORAGE_KEY) || "";
     state.apiKey = savedApiKey || legacyApiKey;
@@ -923,27 +1246,8 @@ ${retrievalInstruction}`;
     state.apiKey = "";
     $("settings-message").textContent = "تعذر قراءة المفتاح المحفوظ. تحقق من إعدادات التخزين في المتصفح.";
   }
-  try {
-    const savedSubscription = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    if (savedSubscription) {
-      const subscription = JSON.parse(savedSubscription);
-      if (!Number.isInteger(subscription.freeMessages) ||
-          subscription.freeMessages < 0 ||
-          subscription.freeMessages > FREE_MESSAGE_LIMIT ||
-          !Number.isFinite(subscription.expiresAt) ||
-          subscription.expiresAt < 0) {
-        throw new Error("بيانات الاشتراك المحفوظة غير صالحة.");
-      }
-      state.freeMessages = subscription.freeMessages;
-      state.subscriptionExpiresAt = subscription.expiresAt;
-    }
-  } catch (error) {
-    state.subscriptionStorageAvailable = false;
-  }
   $("api-key").value = state.apiKey;
   $("model-select").value = state.model;
   setStatus(Boolean(state.apiKey), state.apiKey ? "المفتاح محفوظ على هذا الجهاز" : "المفتاح غير مضاف");
-  refreshSubscriptionGate();
-  window.setInterval(refreshSubscriptionGate, 60_000);
   loadBooks();
 })();
