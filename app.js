@@ -141,7 +141,6 @@
   });
   $("open-settings").addEventListener("click", () => showView("settings"));
   document.querySelectorAll("[data-go-chat]").forEach((btn) => btn.addEventListener("click", () => showView("chat")));
-  window.addEventListener("alaa:show-view", (event) => showView(event.detail.view));
 
   function addMessage(role, content, extraClass = "") {
     $("welcome-panel").classList.add("hidden");
@@ -504,94 +503,7 @@
   }
   async function renderStudentProgress() {
     const container = $("progress-summary");
-    container.replaceChildren();
-    const platform = window.AlaaPlatform;
-    if (!platform?.user) {
-      container.textContent = "سجّل الدخول لعرض تقدمك الشخصي.";
-      return;
-    }
-    const loading = document.createElement("p");
-    loading.className = "progress-empty";
-    loading.textContent = "جارٍ تحميل تقدمك...";
-    container.appendChild(loading);
-    try {
-      const progress = await platform.loadProgress();
-      container.replaceChildren();
-      const lessonSection = document.createElement("section");
-      lessonSection.className = "progress-section";
-      const lessonHeading = document.createElement("h2");
-      lessonHeading.textContent = "الدروس";
-      lessonSection.appendChild(lessonHeading);
-      if (!progress.lessons.length) {
-        const empty = document.createElement("p");
-        empty.className = "progress-empty";
-        empty.textContent = "لم يُسجل تقدم بعد. ابدأ بشرح درس أو إجراء اختبار.";
-        lessonSection.appendChild(empty);
-      } else {
-        const list = document.createElement("ul");
-        list.className = "progress-list";
-        progress.lessons.forEach((lesson) => {
-          const item = document.createElement("li");
-          item.append(document.createTextNode(`${lesson.subject} — ${lesson.lesson}`));
-          const detail = document.createElement("small");
-          detail.textContent = `${lesson.book} · ${lesson.status === "completed" ? "مكتمل" : "قيد الدراسة"}${lesson.needs_review ? " · يحتاج إلى مراجعة" : ""}`;
-          item.appendChild(detail);
-          if (lesson.status !== "completed") {
-            const completeButton = document.createElement("button");
-            completeButton.type = "button";
-            completeButton.className = "text-button";
-            completeButton.textContent = "تحديد كمكتمل";
-            completeButton.addEventListener("click", async () => {
-              completeButton.disabled = true;
-              try {
-                await platform.saveLessonProgress({
-                  ...lesson, track: platform.profile?.track || state.track,
-                  status: "completed", needsReview: lesson.needs_review
-                });
-                await renderStudentProgress();
-              } catch (error) {
-                completeButton.disabled = false;
-                $("profile-status").textContent = `تعذر تحديث الدرس: ${error.message}`;
-              }
-            });
-            item.appendChild(completeButton);
-          }
-          list.appendChild(item);
-        });
-        lessonSection.appendChild(list);
-      }
-      const quizSection = document.createElement("section");
-      quizSection.className = "progress-section";
-      const quizHeading = document.createElement("h2");
-      quizHeading.textContent = "نتائج الاختبارات والأخطاء";
-      quizSection.appendChild(quizHeading);
-      if (!progress.attempts.length) {
-        const empty = document.createElement("p");
-        empty.className = "progress-empty";
-        empty.textContent = "لم تُسجل نتائج بعد. أجرِ اختبارك الأول ليظهر تقدمك هنا.";
-        quizSection.appendChild(empty);
-      } else {
-        const list = document.createElement("ul");
-        list.className = "progress-list";
-        progress.attempts.forEach((attempt) => {
-          const item = document.createElement("li");
-          item.textContent = `${attempt.subject} — ${attempt.lesson}: ${attempt.correctness === "correct" ? "إجابة صحيحة" : attempt.correctness === "partial" ? "إجابة جزئية، تحتاج مراجعة" : attempt.correctness === "incorrect" ? "تحتاج مراجعة" : "لم يتمكن بيمو من تحديد النتيجة بدقة"}`;
-          const detail = document.createElement("small");
-          detail.textContent = `السؤال: ${attempt.question} · إجابتك: ${attempt.student_answer}${attempt.score === null ? "" : ` · الدرجة: ${attempt.score}/100`}${attempt.feedback ? ` · توضيح: ${attempt.feedback}` : ""}`;
-          item.appendChild(detail);
-          list.appendChild(item);
-        });
-        quizSection.appendChild(list);
-      }
-      container.append(lessonSection, quizSection);
-    } catch (error) {
-      console.error("تعذر تحميل تقدم الطالب:", error);
-      container.replaceChildren();
-      const message = document.createElement("p");
-      message.className = "progress-empty";
-      message.textContent = `تعذر تحميل تقدمك الآن: ${error.message}`;
-      container.appendChild(message);
-    }
+    container.textContent = "هذه النسخة لا تستخدم حسابات، لذلك لا يُحفظ تقدمك أو إجاباتك بين الجلسات.";
   }
   $("progress-start-quiz").addEventListener("click", () => {
     showView("chat");
@@ -599,36 +511,6 @@
     $("message-input").value = "اختبرني في هذا الدرس، سؤالًا واحدًا في كل مرة";
     $("message-input").focus();
   });
-  document.querySelectorAll("[data-onboarding-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const platform = window.AlaaPlatform;
-      if (platform?.finishOnboardingForAction &&
-          !(await platform.finishOnboardingForAction())) return;
-      const action = button.dataset.onboardingAction;
-      if (action === "robot") {
-        showView("robot");
-      } else if (action === "review") {
-        showView("progress");
-      } else if (action === "subjects") {
-        showView("subjects");
-      } else {
-        showView("chat");
-        if (action === "explain") {
-          setStudyMode("explain");
-          $("message-input").value = "اشرح لي الدرس خطوة بخطوة";
-        }
-        if (action === "quiz") {
-          setStudyMode("quiz");
-          $("message-input").value = "اختبرني في هذا الدرس، سؤالًا واحدًا في كل مرة";
-        } else if (action === "solve") {
-          setStudyMode("answer");
-          $("message-input").value = "";
-        }
-        $("message-input").focus();
-      }
-    });
-  });
-
   $("settings-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const enteredKey = $("api-key").value.trim();
@@ -813,7 +695,6 @@
     setStudyMode(requestMode === "quizAnswer" ? "quiz" : requestMode);
     const modeInstruction = MODE_INSTRUCTIONS[requestMode] || MODE_INSTRUCTIONS.answer;
     const bookContext = getBookContext(track, subject, bookName, `${lesson} ${message}`);
-    const quizQuestion = state.activeQuiz?.lastQuestion || "";
     addMessage("user", message);
     $("message-input").value = "";
     if (destination === "robot") $("robot-question").value = "";
@@ -905,30 +786,6 @@ ${retrievalInstruction}`;
       if (requestMode === "quiz" || requestMode === "quizAnswer") {
         if (requestMode === "quizAnswer") state.activeQuiz.questionNumber++;
         state.activeQuiz.awaitingAnswer = true;
-        state.activeQuiz.lastQuestion = answer;
-      }
-      const platform = window.AlaaPlatform;
-      if (platform?.user) {
-        try {
-          const lessonName = lesson || state.activeQuiz?.lesson || "غير محدد";
-          const correctness = requestMode === "quizAnswer" ? classifyQuizFeedback(answer) : "ungraded";
-          await platform.saveLessonProgress({
-            track, subject, book: bookName, lesson: lessonName,
-            status: "studying", needsReview: correctness === "incorrect" || correctness === "partial"
-          });
-          if (requestMode === "quizAnswer") {
-            const wrongAnswer = correctness === "incorrect" || correctness === "partial";
-            await platform.saveQuizAttempt({
-              track, subject, book: bookName, lesson: lessonName, question: quizQuestion,
-              studentAnswer: message, feedback: answer, correctness,
-              score: parseQuizScore(answer),
-              incorrectAnswers: wrongAnswer ? [{ question: quizQuestion, studentAnswer: message, feedback: answer }] : []
-            });
-          }
-        } catch (error) {
-          console.error("تعذر حفظ تقدم الطالب:", error);
-          $("profile-status").textContent = `وصل رد بيمو، لكن تعذر حفظ التقدم في حسابك: ${error.message}`;
-        }
       }
       if (destination === "robot") renderWhiteboard(answer.trim());
     } catch (error) {
@@ -950,25 +807,6 @@ ${retrievalInstruction}`;
       $("send-button").disabled = false;
       $("robot-send-button").disabled = false;
     }
-  }
-  function classifyQuizFeedback(answer) {
-    const firstLine = normalizeArabic(String(answer).split(/\r?\n/u)[0]);
-    const marker = firstLine.replace(/^التقييم\s*/u, "").trim();
-    if (/^(صحيح|اجابه صحيحه|اجابة صحيحة)/u.test(marker)) return "correct";
-    if (/^(جزئي|جزئيه|اجابه جزئيه|اجابة جزئية)/u.test(marker)) return "partial";
-    if (/^(غير صحيح|خاطئ|خاطئه|اجابه خاطئه|اجابة خاطئة)/u.test(marker)) return "incorrect";
-    return "ungraded";
-  }
-  function parseQuizScore(answer) {
-    const line = String(answer).split(/\r?\n/u).find((part) => /^الدرجة\s*:/u.test(normalizeArabic(part)));
-    if (!line) return null;
-    const westernDigits = normalizeArabic(line)
-      .replace(/[\u0660-\u0669]/gu, (digit) => String(digit.charCodeAt(0) - 0x0660))
-      .replace(/[\u06F0-\u06F9]/gu, (digit) => String(digit.charCodeAt(0) - 0x06F0));
-    const match = westernDigits.match(/الدرجه\s*:?\s*(\d{1,3})(?:\s*\/\s*100)?/u);
-    if (!match) return null;
-    const score = Number(match[1]);
-    return score <= 100 ? score : null;
   }
   $("chat-form").addEventListener("submit", (event) => {
     event.preventDefault();

@@ -1,15 +1,11 @@
-const CACHE_NAME = "alaa-academy-bimo-v12";
+const CACHE_NAME = "alaa-academy-bimo-v13";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./study.css",
-  "./platform.css",
   "./install.css",
   "./app.js",
-  "./platform.js",
-  "./supabase-config.js",
-  "./supabase/schema.sql",
   "./manifest.webmanifest",
   "./icons/bimo-192.png",
   "./icons/bimo-512.png",

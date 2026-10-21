@@ -2,7 +2,6 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $publishRoot = Join-Path $projectRoot "site-package"
-$supabaseSource = Join-Path $projectRoot "supabase"
 $supabaseDestination = Join-Path $publishRoot "supabase"
 
 $booksDestination = Join-Path $publishRoot "data\books"
@@ -39,13 +38,18 @@ New-AppIcon 180 (Join-Path $iconsSource "bimo-180.png")
 New-AppIcon 192 (Join-Path $iconsSource "bimo-192.png")
 New-AppIcon 512 (Join-Path $iconsSource "bimo-512.png")
 
-foreach ($file in @("index.html", "styles.css", "study.css", "platform.css", "install.css", "app.js", "platform.js", "supabase-config.js", "manifest.webmanifest", "service-worker.js", "_headers")) {
+foreach ($file in @("index.html", "styles.css", "study.css", "install.css", "app.js", "manifest.webmanifest", "service-worker.js", "_headers")) {
   Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $publishRoot -Force
 }
 
-if (Test-Path -LiteralPath $supabaseSource) {
-  New-Item -ItemType Directory -Path $supabaseDestination -Force | Out-Null
-  Copy-Item -LiteralPath (Join-Path $supabaseSource "schema.sql") -Destination $supabaseDestination -Force
+foreach ($obsoleteFile in @("platform.css", "platform.js", "supabase-config.js")) {
+  $obsoletePath = Join-Path $publishRoot $obsoleteFile
+  if (Test-Path -LiteralPath $obsoletePath) {
+    Remove-Item -LiteralPath $obsoletePath
+  }
+}
+if (Test-Path -LiteralPath (Join-Path $supabaseDestination "schema.sql")) {
+  Remove-Item -LiteralPath (Join-Path $supabaseDestination "schema.sql")
 }
 foreach ($obsoleteFile in @("subscription.css")) {
   $obsoleteSource = Join-Path $projectRoot $obsoleteFile
