@@ -123,28 +123,22 @@
         <div class="page-title robot-page-title">
           <div><div class="eyebrow">معلّمك الرقمي</div><h1>روبوت بيمو المتحدث</h1><p>اسأل بلغتك، وشاهد الشرح خطوة بخطوة على السبورة.</p></div>
         </div>
-        <div class="robot-layout">
-          <section class="whiteboard-panel" aria-label="السبورة التعليمية">
-            <div class="whiteboard-topline"><span class="whiteboard-live"><span class="pulse-dot"></span> السبورة الذكية</span><span id="board-progress" aria-live="polite">بانتظار سؤالك</span></div>
-            <div class="whiteboard-canvas" id="whiteboard-canvas" aria-live="polite">
-              <div class="board-placeholder"><span aria-hidden="true">✎</span><h2>لنحلّها معًا</h2><p>اختر المادة والكتاب، ثم اكتب سؤالك ليبدأ بيمو الشرح.</p></div>
-            </div>
-            <div class="board-controls" role="toolbar" aria-label="أدوات السبورة">
-              <button class="secondary-button" id="board-previous" type="button" disabled>السابق</button>
-              <button class="secondary-button" id="board-next" type="button" disabled>التالي</button>
-              <button class="primary-button" id="board-play" type="button" disabled>استمع للشرح</button>
-              <button class="secondary-button" id="board-replay" type="button" disabled>إعادة الشرح</button>
-              <button class="secondary-button" id="board-erase" type="button">مسح السبورة</button>
-              <button class="secondary-button" id="board-redraw" type="button" disabled>إعادة الكتابة</button>
-            </div>
-            <p class="board-status" id="board-status" role="status" aria-live="polite">الصوت يعتمد على جهازك؛ وتنسيق المعادلات بـ MathJax يتطلب اتصالًا بالإنترنت.</p>
-          </section>
-          <aside class="robot-mascot" id="robot-mascot">
-            <div class="robot-image-wrap"><img class="robot-bimo-image" src="icons/bimo-512.png" alt="شخصية بيمو"></div>
-            <div class="robot-name">بيمو <span>معلّمك الذكي</span></div>
-            <p id="robot-speaking-status">أنا جاهز لأشرح لك</p>
-          </aside>
-        </div>
+        <section class="whiteboard-panel" aria-label="السبورة التعليمية">
+          <div class="whiteboard-topline"><span class="whiteboard-live"><span class="pulse-dot"></span> سبورة الشرح</span><span id="board-progress" aria-live="polite">بانتظار سؤالك</span></div>
+          <div class="whiteboard-canvas" id="whiteboard-canvas" aria-live="polite">
+            <div class="board-placeholder"><span aria-hidden="true">✎</span><h2>مساحة السبورة جاهزة</h2><p>اكتب سؤالك ليكتب بيمو الشرح هنا خطوة بخطوة.</p></div>
+          </div>
+          <div class="board-controls" role="toolbar" aria-label="أدوات السبورة">
+            <button class="secondary-button" id="board-previous" type="button" disabled>السابق</button>
+            <button class="secondary-button" id="board-next" type="button" disabled>التالي</button>
+            <button class="primary-button" id="board-play" type="button" disabled>استمع للشرح</button>
+            <button class="secondary-button" id="board-replay" type="button" disabled>إعادة الشرح</button>
+            <button class="secondary-button" id="board-erase" type="button">مسح السبورة</button>
+            <button class="secondary-button" id="board-redraw" type="button" disabled>إعادة الكتابة</button>
+          </div>
+          <p class="board-speaking-status" id="robot-speaking-status" aria-live="polite">بيمو جاهز للشرح على السبورة</p>
+          <p class="board-status" id="board-status" role="status" aria-live="polite">الصوت يعتمد على جهازك؛ وتنسيق المعادلات بـ MathJax يتطلب اتصالًا بالإنترنت.</p>
+        </section>
         <div class="robot-input-panel">
           <div class="robot-context-row">
             <label class="select-wrap robot-track-wrap" id="robot-track-wrap"><span>القسم</span><select id="robot-track-select" aria-label="القسم الدراسي"></select></label>

@@ -833,7 +833,7 @@ ${retrievalInstruction}`;
     $("board-replay").disabled = false;
     renderBoardStep();
     $("board-status").textContent = "اكتمل الشرح. استخدم السابق والتالي أو استمع للخطوات.";
-    $("robot-speaking-status").textContent = "انتهيت من تجهيز الشرح";
+    $("robot-speaking-status").textContent = "الشرح جاهز على السبورة";
   }
   function renderBoardStep() {
     const canvas = $("whiteboard-canvas");
@@ -875,8 +875,7 @@ ${retrievalInstruction}`;
   function stopBoardSpeech() {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     boardSpeechPaused = false;
-    $("robot-mascot").classList.remove("speaking");
-    $("robot-speaking-status").textContent = boardSteps.length ? "الشرح جاهز للاستماع" : "أنا جاهز لأشرح لك";
+    $("robot-speaking-status").textContent = boardSteps.length ? "الشرح جاهز للاستماع" : "بيمو جاهز للشرح على السبورة";
   }
   function speakBoardStep() {
     if (!boardSteps.length || !("speechSynthesis" in window)) {
@@ -904,12 +903,10 @@ ${retrievalInstruction}`;
     const voices = window.speechSynthesis.getVoices();
     utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("ar")) || null;
     utterance.onstart = () => {
-      $("robot-mascot").classList.add("speaking");
       $("robot-speaking-status").textContent = "بيمو يشرح الآن";
       $("board-play").textContent = "إيقاف مؤقت";
     };
     utterance.onend = () => {
-      $("robot-mascot").classList.remove("speaking");
       boardSpeechPaused = false;
       if (boardStepIndex < boardSteps.length - 1) {
         boardStepIndex++;
@@ -921,7 +918,6 @@ ${retrievalInstruction}`;
       }
     };
     utterance.onerror = (event) => {
-      $("robot-mascot").classList.remove("speaking");
       $("board-status").textContent = `تعذر تشغيل الصوت (${event.error}). تحقق من إعدادات الصوت في جهازك.`;
     };
     window.speechSynthesis.speak(utterance);
